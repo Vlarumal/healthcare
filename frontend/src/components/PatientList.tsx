@@ -301,14 +301,14 @@ export const PatientList = () => {
           onApplyFilters={(newFilters) => {
             if (!deepCompareFilters(appliedFilters, newFilters)) {
               setAppliedFilters(newFilters);
+              setPaginationModel(prev => ({ ...prev, page: 0 }));
             }
-            setPaginationModel(prev => ({ ...prev, page: 0 }));
           }}
           onResetFilters={() => {
             if (Object.keys(appliedFilters).length > 0) {
               setAppliedFilters({});
+              setPaginationModel(prev => ({ ...prev, page: 0 }));
             }
-            setPaginationModel(prev => ({ ...prev, page: 0 }));
           }}
         />
       </Paper>
