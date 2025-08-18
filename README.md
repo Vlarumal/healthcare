@@ -17,7 +17,6 @@ A comprehensive healthcare management system with patient records, authenticatio
 - [API Documentation](#api-documentation)
 - [Security](#security)
 - [Deployment](#deployment)
-- [Containerization](#containerization)
 - [Important Files](#important-files)
 - [Contributing](#contributing)
 - [License](#license)
@@ -62,7 +61,7 @@ The application follows a client-server architecture with a React frontend commu
 ┌─────────────────┐    HTTP    ┌──────────────────┐    Database    ┌──────────────┐
 │   React/TypeScript Frontend  │ ────────────→ │  Node.js/Express Backend  │ ────────────→ │  PostgreSQL  │
 │                              │               │                       │               │            
-└─────────────────┘           └──────────────────┘                   └──────────────┘
+└─────────────────┘            └──────────────────┘                └──────────────┘
 ```
 
 ### Frontend Architecture
