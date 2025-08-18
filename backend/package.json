@@ -6,7 +6,7 @@
   "scripts": {
     "start": "ts-node src/index.ts",
     "build": "NODE_ENV=production tsc",
-    "build:ui": "NODE_ENV=production rm -rf dist && cd ../frontend/ && npm install && npm run build && cp -r dist ../backend",
+    "build:ui": "NODE_ENV=production rm -rf dist && cd ../frontend/ && npm install --include=dev && npm run build && cp -r dist ../backend",
     "start:prod": "NODE_ENV=production node build/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "db:create": "ts-node scripts/db-create.ts",

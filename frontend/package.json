@@ -49,6 +49,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
+    "@hookform/resolvers": "^5.2.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@types/crypto-js": "^4.2.2",
