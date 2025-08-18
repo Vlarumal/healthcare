@@ -108,10 +108,10 @@ const globalLimiter = rateLimit({
 //   legacyHeaders: false,
 // });
 
-app.set(
-  'trust proxy',
-  process.env.NODE_ENV === 'production' ? true : 1
-);
+const trustProxyCount = process.env.TRUST_PROXY_COUNT
+  ? parseInt(process.env.TRUST_PROXY_COUNT)
+  : process.env.NODE_ENV === 'production' ? 1 : 1;
+app.set('trust proxy', trustProxyCount);
 
 app.use(globalLimiter);
 

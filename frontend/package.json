@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "NODE_ENV=production tsc -b && vite build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -16,7 +16,7 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit",
     "dev:full": "npm run dev & npm run test -- --watch",
-    "preview:prod": "npm run build && npm run preview",
+    "preview:prod": "NODE_ENV=production npm run build && npm run preview",
     "audit": "npm audit",
     "generate:component": "node ./scripts/generate-component.js",
     "clean": "rimraf dist/*"

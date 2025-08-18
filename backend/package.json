@@ -5,9 +5,9 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "ts-node src/index.ts",
-    "build": "tsc",
-    "build:ui": "rm -rf dist && cd ../frontend/ && npm run build && cp -r dist ../backend",
-    "start:prod": "node build/index.js",
+    "build": "NODE_ENV=production tsc",
+    "build:ui": "NODE_ENV=production rm -rf dist && cd ../frontend/ && npm install && npm run build && cp -r dist ../backend",
+    "start:prod": "NODE_ENV=production node build/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "db:create": "ts-node scripts/db-create.ts",
     "db:drop": "ts-node scripts/db-drop.ts",

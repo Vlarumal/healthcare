@@ -157,7 +157,7 @@ router.post(
         sameSite: 'lax',
         domain:
           process.env.NODE_ENV === 'production'
-            ? 'yourdomain.com'
+            ? process.env.COOKIE_DOMAIN || undefined
             : undefined,
         path: '/',
         maxAge: ACCESS_TOKEN_EXPIRES_IN_MS,
@@ -169,7 +169,7 @@ router.post(
         sameSite: 'lax',
         domain:
           process.env.NODE_ENV === 'production'
-            ? 'yourdomain.com'
+            ? process.env.COOKIE_DOMAIN || undefined
             : undefined,
         maxAge: REFRESH_TOKEN_EXPIRES_IN_DAYS,
         expires: new Date(
@@ -300,7 +300,7 @@ router.post(
         sameSite: 'lax',
         domain:
           process.env.NODE_ENV === 'production'
-            ? 'yourdomain.com'
+            ? process.env.COOKIE_DOMAIN || undefined
             : undefined,
         path: '/',
         maxAge: ACCESS_TOKEN_EXPIRES_IN_MS,
@@ -312,7 +312,7 @@ router.post(
         sameSite: 'lax',
         domain:
           process.env.NODE_ENV === 'production'
-            ? 'yourdomain.com'
+            ? process.env.COOKIE_DOMAIN || undefined
             : undefined,
         maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
       });
