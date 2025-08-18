@@ -2,7 +2,7 @@ import { apiRequest } from './apiRequest';
 import type { Patient, PatientFormData } from '../types/patient';
 import { useQuery } from '@tanstack/react-query';
 
-const API_BASE_URL = 'http://localhost:3001/api/patients';
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api/patients`;
 
 export interface PaginatedResponse {
   data: Patient[];

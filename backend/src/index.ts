@@ -4,7 +4,7 @@ import { QueryRunner } from 'typeorm';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import {
-    doubleCsrfProtection,
+  doubleCsrfProtection,
   generateCsrfToken,
 } from './middlewares/csrfMiddleware';
 import patientRoutes from './routes/patientRoutes';
@@ -31,7 +31,7 @@ app.use(express.json());
 
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',')
-  : ['http://localhost:5173'];
+  : ['http://localhost:5173', 'http://localhost:3001'];
 
 app.use(
   cors({
@@ -54,7 +54,8 @@ app.use(
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'"],
+        // styleSrc: ["'self'"],
+        // styleSrc: ["'unsafe-inline'"],
         imgSrc: ["'self'", 'data:'],
         connectSrc: ["'self'"],
         fontSrc: ["'self'"],
@@ -84,6 +85,8 @@ app.use((_req, res, next) => {
   next();
 });
 
+app.use(express.static('dist'));
+
 app.use(cookieParser());
 
 const globalLimiter = rateLimit({
@@ -105,7 +108,10 @@ const globalLimiter = rateLimit({
 //   legacyHeaders: false,
 // });
 
-app.set('trust proxy', process.env.NODE_ENV === 'production' ? true : 1);
+app.set(
+  'trust proxy',
+  process.env.NODE_ENV === 'production' ? true : 1
+);
 
 app.use(globalLimiter);
 
