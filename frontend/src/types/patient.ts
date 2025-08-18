@@ -5,9 +5,9 @@ export interface Patient {
   email: string;
   dateOfBirth: string;
   gender?: 'male' | 'female' | 'other' | 'unspecified';
-  phoneNumber?: string | null;
-  address?: string;
-  city?: string;
+  phoneNumber?: string | null | undefined;
+  address?: string | null;
+  city?: string | null;
   zipCode?: string | null;
   role: 'patient' | 'staff' | 'admin' | 'clinician';
 }
@@ -19,9 +19,9 @@ export type PatientFormData = {
   email: string;
   dateOfBirth: string;
   gender?: 'male' | 'female' | 'other' | 'unspecified';
-  phoneNumber?: string | null;
-  address?: string;
-  city?: string;
+  phoneNumber?: string | null | undefined;
+  address?: string | null;
+  city?: string | null;
   zipCode?: string | null;
   role?: 'patient' | 'staff' | 'admin' | 'clinician';
 };

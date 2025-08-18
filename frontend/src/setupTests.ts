@@ -4,6 +4,8 @@ import '@testing-library/jest-dom';
 
 vi.mock('*.css', () => ({}));
 
+vi.mock('@mui/x-data-grid/esm/index.css', () => ({}));
+
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation((query) => ({

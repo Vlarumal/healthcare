@@ -90,7 +90,7 @@ const schema = z.object({
     .string()
     .nullable()
     .optional()
-    .transform((val) => (val === '' ? null : val))
+    .transform((val) => (val === '' || val === null ? undefined : val))
     .refine(
       (val) => {
         if (!val) return true;
@@ -118,17 +118,17 @@ const schema = z.object({
     .string()
     .nullable()
     .optional()
-    .transform((val) => (val === '' ? null : val)),
+    .transform((val) => (val === '' || val === null ? undefined : val)),
   city: z
     .string()
     .nullable()
     .optional()
-    .transform((val) => (val === '' ? null : val)),
+    .transform((val) => (val === '' || val === null ? undefined : val)),
   zipCode: z
     .string()
     .nullable()
     .optional()
-    .transform((val) => (val === '' ? null : val)),
+    .transform((val) => (val === '' || val === null ? undefined : val)),
   role: z
     .union([
       z.literal('patient'),
@@ -137,7 +137,7 @@ const schema = z.object({
       z.literal('clinician'),
     ])
     .optional(),
-}) as z.ZodType<PatientFormData>;
+});
 
 export const PatientForm = ({
   open,
@@ -238,17 +238,19 @@ export const PatientForm = ({
         ) : (
           <form
             onSubmit={handleSubmit((data) => {
-              const sanitizedData = {
-                ...data,
+              const sanitizedData: PatientFormData = {
                 firstName: sanitizeInputWithFallback(data.firstName),
                 lastName: sanitizeInputWithFallback(data.lastName),
                 email: sanitizeInputWithFallback(data.email),
-                phoneNumber: sanitizeInputNullable(data.phoneNumber),
-                address: sanitizeInputNullable(data.address),
-                city: sanitizeInputNullable(data.city),
-                zipCode: sanitizeInputNullable(data.zipCode)
+                dateOfBirth: sanitizeInputWithFallback(data.dateOfBirth),
+                gender: data.gender,
+                phoneNumber: data.phoneNumber !== null ? sanitizeInputNullable(data.phoneNumber) : undefined,
+                address: data.address !== null ? sanitizeInputNullable(data.address) : undefined,
+                city: data.city !== null ? sanitizeInputNullable(data.city) : undefined,
+                zipCode: data.zipCode !== null ? sanitizeInputNullable(data.zipCode) : undefined,
+                ...(user?.role === 'admin' && { role: data.role })
               };
-              onSubmit(sanitizedData as PatientFormData);
+              onSubmit(sanitizedData);
             })}
           >
             <Stack

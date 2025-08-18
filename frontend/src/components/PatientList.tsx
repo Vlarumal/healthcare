@@ -5,6 +5,7 @@ import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { PatientForm } from './PatientForm';
 import { EmptyState } from './EmptyState';
 import { StandardButton } from './common/StandardButton';
+import { ConfirmationDialog } from './common/ConfirmationDialog';
 import {
   Stack,
   Paper,
@@ -50,6 +51,8 @@ export const PatientList = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 10,
@@ -108,9 +111,16 @@ export const PatientList = () => {
   });
 
   const handleSubmit = useCallback((data: PatientFormData) => {
+    const submissionData = {
+    ...data,
+    phoneNumber: data.phoneNumber === undefined ? null : data.phoneNumber,
+    address: data.address === undefined ? null : data.address,
+    city: data.city === undefined ? null : data.city,
+    zipCode: data.zipCode === undefined ? null : data.zipCode
+  };
     const operation = selectedPatient
-      ? PatientService.updatePatient(selectedPatient.id, data)
-      : PatientService.createPatient(data);
+      ? PatientService.updatePatient(selectedPatient.id, submissionData)
+      : PatientService.createPatient(submissionData);
 
     operation.then(() => {
       setOpenDialog(false);
@@ -171,23 +181,46 @@ export const PatientList = () => {
     />
   ), (prevProps, nextProps) => prevProps.row.id === nextProps.row.id);
 
-  const DeleteAction = memo(({ id }: { id: string | number }) => (
-    <GridActionsCellItem
-      icon={deletingIds.includes(id as string) ? (
-        <Tooltip title="Deleting patient..." arrow>
-          <CircularProgress size={isMobile ? 32 : 24} aria-label="Deleting patient" />
-        </Tooltip>
-      ) : (
-        <Tooltip title="Delete patient" arrow>
-          <Delete fontSize={isMobile ? "medium" : "small"} color='error' aria-label="Delete patient" />
-        </Tooltip>
-      )}
-      onClick={() => deleteMutation.mutate(id as string)}
-      label="Delete patient"
-      showInMenu={false}
-      disabled={deletingIds.includes(id as string)}
-    />
-  ), (prevProps, nextProps) => prevProps.id === nextProps.id &&
+  const handleDeleteClick = useCallback((patient: Patient) => {
+    setPatientToDelete(patient);
+    setIsDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (patientToDelete) {
+      deleteMutation.mutate(patientToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setPatientToDelete(null);
+    }
+  }, [deleteMutation, patientToDelete]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setIsDeleteDialogOpen(false);
+    setPatientToDelete(null);
+  }, []);
+
+  const DeleteAction = memo(({ id }: { id: string | number }) => {
+    // Find the patient object from the patients array
+    const patient = patients.find(p => p.id === id);
+    
+    return (
+      <GridActionsCellItem
+        icon={deletingIds.includes(id as string) ? (
+          <Tooltip title="Deleting patient..." arrow>
+            <CircularProgress size={isMobile ? 32 : 24} aria-label="Deleting patient" />
+          </Tooltip>
+        ) : (
+          <Tooltip title="Delete patient" arrow>
+            <Delete fontSize={isMobile ? "medium" : "small"} color='error' aria-label="Delete patient" />
+          </Tooltip>
+        )}
+        onClick={() => patient && handleDeleteClick(patient)}
+        label="Delete patient"
+        showInMenu={false}
+        disabled={deletingIds.includes(id as string) || !patient}
+      />
+    );
+  }, (prevProps, nextProps) => prevProps.id === nextProps.id &&
      deletingIds.includes(prevProps.id as string) === deletingIds.includes(nextProps.id as string));
 
   const mobileColumns: GridColDef<Patient>[] = useMemo(() => [
@@ -379,6 +412,17 @@ export const PatientList = () => {
           zipCode: selectedPatient.zipCode,
           role: selectedPatient.role
         } : undefined}
+      />
+      
+      <ConfirmationDialog
+        open={isDeleteDialogOpen}
+        title="Confirm Patient Deletion"
+        message={`Are you sure you want to delete patient "${patientToDelete?.firstName} ${patientToDelete?.lastName}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        confirmColor="error"
       />
     </Stack>
   );

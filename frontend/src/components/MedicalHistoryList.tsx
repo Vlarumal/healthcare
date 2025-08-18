@@ -39,12 +39,14 @@ export const MedicalHistoryList = ({
   const EditAction = useCallback(
     ({ row }: { row: MedicalHistory }) => (
       <Tooltip title='Edit' key={`edit-${row.id}`}>
-        <GridActionsCellItem
-          icon={<Edit color='warning' />}
-          label='Edit'
-          onClick={() => onEdit(row)}
-          disabled={deletingIds.includes(row.id)}
-        />
+        <span>
+          <GridActionsCellItem
+            icon={<Edit color='warning' />}
+            label='Edit'
+            onClick={() => onEdit(row)}
+            disabled={deletingIds.includes(row.id)}
+          />
+        </span>
       </Tooltip>
     ),
     [onEdit, deletingIds]
@@ -55,18 +57,20 @@ export const MedicalHistoryList = ({
       const isDeleting = deletingIds.includes(id as number);
       return (
         <Tooltip title='Delete' key={`delete-${id}`}>
-          <GridActionsCellItem
-            icon={
-              isDeleting ? (
-                <CircularProgress size={24} />
-              ) : (
-                <Delete color='error' />
-              )
-            }
-            label='Delete'
-            onClick={() => handleDelete(id)}
-            disabled={isDeleting}
-          />
+          <span>
+            <GridActionsCellItem
+              icon={
+                isDeleting ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  <Delete color='error' />
+                )
+              }
+              label='Delete'
+              onClick={() => handleDelete(id)}
+              disabled={isDeleting}
+            />
+          </span>
         </Tooltip>
       );
     },
@@ -150,21 +154,25 @@ export const MedicalHistoryList = ({
               </Typography>
               <Stack direction="row" spacing={1}>
                 <Tooltip title="Edit">
-                  <Edit
-                    color="warning"
-                    onClick={() => onEdit(history)}
-                    style={{ cursor: 'pointer' }}
-                  />
+                  <span>
+                    <Edit
+                      color="warning"
+                      onClick={() => onEdit(history)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </span>
                 </Tooltip>
                 {deletingIds.includes(history.id) ? (
                   <CircularProgress size={24} />
                 ) : (
                   <Tooltip title="Delete">
-                    <Delete
-                      color="error"
-                      onClick={() => handleDelete(history.id)}
-                      style={{ cursor: 'pointer' }}
-                    />
+                    <span>
+                      <Delete
+                        color="error"
+                        onClick={() => handleDelete(history.id)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </span>
                   </Tooltip>
                 )}
               </Stack>

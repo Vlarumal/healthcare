@@ -17,6 +17,7 @@ import { PatientForm } from './PatientForm';
 import dayjs from 'dayjs';
 import type { MedicalHistory } from '../types/medicalHistory';
 import type { PatientFormData } from '../types/patient';
+import { ConfirmationDialog } from './common/ConfirmationDialog';
 
 export const PatientDetailsView = () => {
   const { isAuthenticated, user } = useAuth();
@@ -62,6 +63,8 @@ export const PatientDetailsView = () => {
   const [isEditingPatient, setIsEditingPatient] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [medicalHistoryToDelete, setMedicalHistoryToDelete] = useState<number | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const handleEdit = useCallback((history: MedicalHistory) => {
     setEditingHistory(history);
@@ -71,29 +74,42 @@ export const PatientDetailsView = () => {
     setIsAddingHistory(true);
   }, []);
 
-  const handleDelete = useCallback(
-    async (id: number) => {
-      if (
-        window.confirm(
-          'Are you sure you want to delete this medical history entry?'
-        )
-      ) {
-        try {
-          await MedicalHistoryService.delete(id);
-          queryClient.invalidateQueries({
-            queryKey: ['medicalHistories', patientId],
-          });
-        } catch (error) {
-          let errorMessage =
-            'Failed to delete medical history entry. Please try again.';
-          if (error instanceof Error) {
-            errorMessage = error.message;
-          }
-          setError(errorMessage);
+  const handleDeleteClick = useCallback((id: number) => {
+    setMedicalHistoryToDelete(id);
+    setIsDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (medicalHistoryToDelete !== null) {
+      try {
+        await MedicalHistoryService.delete(medicalHistoryToDelete);
+        queryClient.invalidateQueries({
+          queryKey: ['medicalHistories', patientId],
+        });
+      } catch (error) {
+        let errorMessage =
+          'Failed to delete medical history entry. Please try again.';
+        if (error instanceof Error) {
+          errorMessage = error.message;
         }
+        setError(errorMessage);
+      } finally {
+        setIsDeleteDialogOpen(false);
+        setMedicalHistoryToDelete(null);
       }
+    }
+  }, [medicalHistoryToDelete, patientId, queryClient]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setIsDeleteDialogOpen(false);
+    setMedicalHistoryToDelete(null);
+  }, []);
+
+  const handleDelete = useCallback(
+    (id: number) => {
+      handleDeleteClick(id);
     },
-    [patientId, queryClient]
+    [handleDeleteClick]
   );
 
   const handleFormSuccess = useCallback(() => {
@@ -155,9 +171,13 @@ export const PatientDetailsView = () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id: __, ...formData } = data;
 
+      // Convert undefined values to null for nullable fields to ensure they can be emptied
       const submissionData = {
         ...formData,
-        phoneNumber: formData.phoneNumber === '' ? null : formData.phoneNumber,
+        phoneNumber: formData.phoneNumber === undefined ? null : formData.phoneNumber,
+        address: formData.address === undefined ? null : formData.address,
+        city: formData.city === undefined ? null : formData.city,
+        zipCode: formData.zipCode === undefined ? null : formData.zipCode,
       };
       updateMutation.mutate(submissionData);
     },
@@ -473,6 +493,17 @@ export const PatientDetailsView = () => {
           </Box>
         </Box>
       </Paper>
+      
+      <ConfirmationDialog
+        open={isDeleteDialogOpen}
+        title="Confirm Medical History Deletion"
+        message="Are you sure you want to delete this medical history entry? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        confirmColor="error"
+      />
     </Box>
   );
 };
