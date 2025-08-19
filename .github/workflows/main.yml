@@ -6,12 +6,24 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  CONDITION_SKIP: ${{ contains(join(github.event.commits.*.message, ' '), '#skip') }}
+  CONDITION_PUSH: ${{ github.event_name == 'push' }}
+
 jobs:
   frontend-ci:
     runs-on: ubuntu-latest
+    outputs:
+      author: ${{ steps.get_author.outputs.author }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Get last commit author
+        id: get_author
+        run: |
+          AUTHOR=$(git log -1 --pretty=format:'%an')
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -22,7 +34,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install --include=dev
 
     #   - name: Run frontend lint
     #     working-directory: frontend
@@ -61,7 +73,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: npm ci
+        run: npm install --include=dev
 
     #   - name: Run backend lint
     #     working-directory: backend
