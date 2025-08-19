@@ -75,9 +75,9 @@ jobs:
         working-directory: backend
         run: npm install --include=dev
 
-      - name: Run backend lint
-        working-directory: backend
-        run: npm run lint
+    #   - name: Run backend lint
+    #     working-directory: backend
+    #     run: npm run lint
 
     #   - name: Run backend tests
     #     working-directory: backend

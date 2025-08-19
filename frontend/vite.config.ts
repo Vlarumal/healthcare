@@ -17,7 +17,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        // target: 'http://localhost:3001',
+        target: 'https://healthcare-as0g.onrender.com',
         changeOrigin: true,
       },
     },
