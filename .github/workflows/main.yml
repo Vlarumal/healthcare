@@ -36,9 +36,9 @@ jobs:
         working-directory: frontend
         run: npm install --include=dev
 
-    #   - name: Run frontend lint
-    #     working-directory: frontend
-    #     run: npm run lint
+      - name: Run frontend lint
+        working-directory: frontend
+        run: npm run lint
 
     #   - name: Run frontend tests
     #     working-directory: frontend
@@ -75,9 +75,9 @@ jobs:
         working-directory: backend
         run: npm install --include=dev
 
-    #   - name: Run backend lint
-    #     working-directory: backend
-    #     run: npm run lint
+      - name: Run backend lint
+        working-directory: backend
+        run: npm run lint
 
     #   - name: Run backend tests
     #     working-directory: backend
@@ -110,11 +110,20 @@ jobs:
 #         with:
 #           node-version: '22'
 
-#       - name: Install Render CLI
-#         run: npm install -g @renderinc/cli
+#       - name: prepare dist
+#         working-directory: frontend
+#         run: npm install --include=dev && npm run build && cp -r dist ../backend
 
-#       - name: Deploy to Render
-#         env:
-#           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-#         run: |
-#           render deploy --confirm
+#       - name: Trigger deployment
+#         id: deploy
+#         if: ${{ env.CONDITION_PUSH == 'true' && env.CONDITION_SKIP == 'false' }}
+#         run: curl https://api.render.com/deploy/srv-${{ secrets.MY_RENDER_SERVICE_ID }}?key=${{ secrets.MY_RENDER_API_KEY }}
+
+    #   - name: Install Render CLI
+    #     run: npm install -g @renderinc/cli
+
+    #   - name: Deploy to Render
+    #     env:
+    #       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+    #     run: |
+    #       render deploy --confirm

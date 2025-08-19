@@ -31,7 +31,7 @@ app.use(express.json());
 
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',')
-  : ['http://localhost:5173', 'http://localhost:3001'];
+  : ['http://localhost:5173', 'http://localhost:3001', 'https://healthcare-2rmw.onrender.com'];
 
 app.use(
   cors({
