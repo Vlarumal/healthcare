@@ -9,23 +9,27 @@ import { Button } from '@mui/material';
 interface MedicalHistorySectionProps {
   patientId: string;
   medicalHistories: MedicalHistory[];
+  deletingIds: number[];
   isMedicalHistoriesLoading: boolean;
   isMedicalHistoriesError: boolean;
   onEdit: (history: MedicalHistory) => void;
   onDelete: (id: number) => void;
   onAdd: () => void;
   canEdit: boolean;
+  onDeletingIdsChange: (newDeletingIds: number[]) => void;
 }
 
 export const MedicalHistorySection = ({
   patientId,
   medicalHistories,
+  deletingIds,
   isMedicalHistoriesLoading,
   isMedicalHistoriesError,
   onEdit,
   onDelete,
   onAdd,
   canEdit,
+  onDeletingIdsChange,
 }: MedicalHistorySectionProps) => {
   return (
     <DetailSection
@@ -54,8 +58,10 @@ export const MedicalHistorySection = ({
         <MedicalHistoryList
           patientId={patientId}
           histories={medicalHistories}
+          deletingIds={deletingIds}
           onEdit={onEdit}
           onDelete={onDelete}
+          onDeletingIdsChange={onDeletingIdsChange}
         />
       ) : (
         <ErrorDisplay

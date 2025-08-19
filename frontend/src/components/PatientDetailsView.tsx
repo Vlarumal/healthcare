@@ -65,6 +65,7 @@ export const PatientDetailsView = () => {
   const [error, setError] = useState<string | null>(null);
   const [medicalHistoryToDelete, setMedicalHistoryToDelete] = useState<number | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<number[]>([]);
 
   const handleEdit = useCallback((history: MedicalHistory) => {
     setEditingHistory(history);
@@ -82,6 +83,8 @@ export const PatientDetailsView = () => {
   const handleDeleteConfirm = useCallback(async () => {
     if (medicalHistoryToDelete !== null) {
       try {
+        setDeletingIds(prev => [...prev, medicalHistoryToDelete]);
+        
         await MedicalHistoryService.delete(medicalHistoryToDelete);
         queryClient.invalidateQueries({
           queryKey: ['medicalHistories', patientId],
@@ -94,6 +97,8 @@ export const PatientDetailsView = () => {
         }
         setError(errorMessage);
       } finally {
+        // Remove the ID from deletingIds after deletion completes
+        setDeletingIds(prev => prev.filter(id => id !== medicalHistoryToDelete));
         setIsDeleteDialogOpen(false);
         setMedicalHistoryToDelete(null);
       }
@@ -441,12 +446,14 @@ export const PatientDetailsView = () => {
             <MedicalHistorySection
               patientId={patientData.id}
               medicalHistories={medicalHistories || []}
+              deletingIds={deletingIds}
               isMedicalHistoriesLoading={isMedicalHistoriesLoading}
               isMedicalHistoriesError={isMedicalHistoriesError}
               onEdit={handleEdit}
               onDelete={handleDelete}
               onAdd={handleAdd}
               canEdit={canEdit}
+              onDeletingIdsChange={setDeletingIds}
             />
 
             {medicalHistoryError && (

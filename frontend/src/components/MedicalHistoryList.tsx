@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import {
   DataGrid,
   GridActionsCellItem,
@@ -14,24 +14,37 @@ import { sanitizeMedicalHistory } from '../utils/sanitization';
 interface MedicalHistoryListProps {
   patientId: string;
   histories: MedicalHistory[];
+  deletingIds: number[];
   onEdit: (history: MedicalHistory) => void;
   onDelete: (id: number) => void;
+  onDeletingIdsChange?: (newDeletingIds: number[]) => void;
 }
 
 export const MedicalHistoryList = ({
   histories,
+  deletingIds,
   onEdit,
   onDelete,
+  onDeletingIdsChange,
 }: MedicalHistoryListProps) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [deletingIds, setDeletingIds] = useState<number[]>([]);
+  
+  useEffect(() => {
+    if (onDeletingIdsChange && deletingIds.length > 0) {
+      const validDeletingIds = deletingIds.filter(id =>
+        histories.some(history => history.id === id)
+      );
+      
+      if (validDeletingIds.length !== deletingIds.length) {
+        onDeletingIdsChange(validDeletingIds);
+      }
+    }
+  }, [histories, deletingIds, onDeletingIdsChange]);
 
   const handleDelete = useCallback(
     (id: GridRowId) => {
-      setDeletingIds((prev) => [...prev, id as number]);
       onDelete(id as number);
-      // Note: Parent component should remove the id from deletingIds when done
     },
     [onDelete]
   );

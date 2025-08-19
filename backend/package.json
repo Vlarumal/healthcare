@@ -13,6 +13,7 @@
     "db:drop": "ts-node scripts/db-drop.ts",
     "db:seed": "ts-node scripts/db-seed.ts",
     "db:create-guests": "ts-node scripts/db-create-guest-users.ts",
+    "db:all": "ts-node scripts/db-create.ts && ts-node scripts/db-seed.ts && ts-node scripts/db-create-guest-users.ts",
     "lint": "eslint 'src/**/*.ts'",
     "lint:fix": "eslint . --fix",
     "test": "cross-env NODE_ENV=test jest --runInBand",
