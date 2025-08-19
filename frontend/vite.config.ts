@@ -7,18 +7,17 @@ export default defineConfig({
   base: '/',
   plugins: [
     react(),
-    visualizer({
+    process.env.NODE_ENV !== 'production' ? visualizer({
       filename: 'dist/stats.html',
       open: true,
       gzipSize: true,
       brotliSize: true,
-    }),
-  ],
+    }) : null,
+  ].filter(Boolean),
   server: {
     proxy: {
       '/api': {
-        // target: 'http://localhost:3001',
-        target: 'https://healthcare-as0g.onrender.com',
+        target: process.env.VITE_API_BASE_URL,
         changeOrigin: true,
       },
     },

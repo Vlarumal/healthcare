@@ -28,9 +28,10 @@ export const createCsrfMiddleware = () => {
     cookieName: 'csrfToken',
     cookieOptions: {
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       httpOnly: true,
-      maxAge: 3600000 // 1 hour expiration
+      maxAge: 3600000, // 1 hour expiration
+      domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
     },
     size: 64,
     ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
