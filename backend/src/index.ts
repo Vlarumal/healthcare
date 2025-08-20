@@ -5,7 +5,8 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
 
-const { doubleCsrfProtection, generateCsrfToken } = createCsrfMiddleware();
+const { doubleCsrfProtection, generateCsrfToken } =
+  createCsrfMiddleware();
 import patientRoutes from './routes/patientRoutes';
 import medicalHistoryRoutes from './routes/medicalHistoryRoutes';
 import errorHandler from './middlewares/errorHandler';
@@ -13,7 +14,7 @@ import { AppDataSource } from './data-source';
 import authRoutes from './routes/authRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+// import rateLimit from 'express-rate-limit';
 import logger from './utils/logger';
 import { InternalServerError } from './errors/httpErrors';
 import path from 'path';
@@ -39,8 +40,13 @@ if (!process.env.CORS_ORIGIN) {
   );
 }
 const allowedOrigins = process.env.CORS_ORIGIN
-? process.env.CORS_ORIGIN.split(',')
-: ['http://localhost:5173', 'http://localhost:3001', 'https://healthcare-2rmw.onrender.com', 'https://healthcare-as0g.onrender.com'];
+  ? process.env.CORS_ORIGIN.split(',')
+  : [
+      'http://localhost:5173',
+      'http://localhost:3001',
+      'https://healthcare-2rmw.onrender.com',
+      'https://healthcare-as0g.onrender.com',
+    ];
 
 app.use(
   cors({
@@ -71,7 +77,6 @@ app.use(
           "'unsafe-inline'",
           'https://gc.kis.v2.scr.kaspersky-labs.com',
         ],
-        // Allow CSS files from same origin
         styleSrcElem: [
           "'self'",
           'http://gc.kis.v2.scr.kaspersky-labs.com',
@@ -125,16 +130,27 @@ app.use(express.static('../frontend/dist'));
 //   }
 // }));
 
+// const trustProxyCount = process.env.TRUST_PROXY_COUNT
+//   ? parseInt(process.env.TRUST_PROXY_COUNT)
+//   : process.env.NODE_ENV === 'production'
+//   ? 1
+//   : 1;
+// app.set('trust proxy', trustProxyCount);
+app.set('trust proxy', process.env.NODE_ENV === 'production')
+
+// Ensure Express respects X-Forwarded-Proto header for secure cookies
+// app.enable('trust proxy');
+
 app.use(cookieParser());
 
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message:
-    'Too many requests from this IP, please try again after 15 minutes',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// const globalLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100,
+//   message:
+//     'Too many requests from this IP, please try again after 15 minutes',
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
 
 // // Define a stricter rate limit for API routes
 // const apiLimiter = rateLimit({
@@ -146,18 +162,7 @@ const globalLimiter = rateLimit({
 //   legacyHeaders: false,
 // });
 
-const trustProxyCount = process.env.TRUST_PROXY_COUNT
-  ? parseInt(process.env.TRUST_PROXY_COUNT)
-  : process.env.NODE_ENV === 'production'
-  ? 1
-  : 1;
-app.set('trust proxy', trustProxyCount);
-// app.set('trust proxy', true)
-
-// Ensure Express respects X-Forwarded-Proto header for secure cookies
-// app.enable('trust proxy');
-
-app.use(globalLimiter);
+// app.use(globalLimiter);
 
 app.use((req, res, next) => {
   if (
@@ -167,7 +172,9 @@ app.use((req, res, next) => {
   ) {
     next();
   } else {
-    doubleCsrfProtection(req, res, next);
+    if (process.env.CSRF_PROTECTION) {
+      doubleCsrfProtection(req, res, next);
+    }
   }
 });
 
@@ -199,7 +206,9 @@ async function initializeServer() {
     );
 
     app.get(/^(?!\/api).*/, (_req, res) => {
-      res.sendFile(path.resolve(__dirname, '../../frontend/dist', 'index.html'));
+      res.sendFile(
+        path.resolve(__dirname, '../../frontend/dist', 'index.html')
+      );
     });
 
     app.use(errorHandler);
@@ -228,9 +237,23 @@ app.get('/health', (_req, res: Response) => {
 });
 
 import { getJWKS } from './services/keysService';
+import { getSessionIdentifier } from './middlewares/csrfMiddleware';
 
 app.get('/api/csrf-token', (req, res) => {
   try {
+    if (!req.cookies.session) {
+      const sessionId = getSessionIdentifier(req);
+      res.cookie('session', sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production' && process.env.PROXY_SECURE === 'true',
+        sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'strict',
+        ...(process.env.NODE_ENV === 'production' && {
+          domain: process.env.COOKIE_DOMAIN || '.onrender.com'
+        }),
+        maxAge: 3600000 // 1 hour
+      });
+    }
+    
     const token = generateCsrfToken(req, res);
     res.json({ csrfToken: token });
   } catch (error) {

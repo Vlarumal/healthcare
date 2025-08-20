@@ -8,7 +8,9 @@ import { EmailService } from '../../services/emailService';
 import { Gender } from '../../entities/Patient';
 import { authorizeRole } from '../../middlewares/authMiddleware';
 import errorHandler from '../../middlewares/errorHandler';
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
+import { AuthenticatedRequest } from '../../types/express.d';
+import { PatientNotFoundError } from '../../errors/patientErrors';
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -53,9 +55,13 @@ jest.mock('../../services/emailService', () => ({
 
 jest.mock('../../middlewares/authMiddleware', () => ({
   authenticateJWT: jest.fn(
-    (req: Request, _res: Response, next: NextFunction) => {
+    (
+      req: AuthenticatedRequest,
+      _res: Response,
+      next: NextFunction
+    ) => {
       if (!req.user) {
-        req.user = { id: 1, role: 'admin' as const };
+        req.user = { id: 1, role: 'admin' as const, tokenVersion: 0 };
       }
       if (req.testError) {
         next(req.testError);
@@ -66,7 +72,11 @@ jest.mock('../../middlewares/authMiddleware', () => ({
   ),
   authorizeRole: jest.fn(
     (roles: string[]) =>
-      (req: Request, res: Response, next: NextFunction) => {
+      (
+        req: AuthenticatedRequest,
+        res: Response,
+        next: NextFunction
+      ) => {
         if (!req.user?.role || !roles.includes(req.user.role)) {
           res.status(403).json({
             code: 'ACCESS_DENIED',
@@ -85,8 +95,16 @@ describe('verifyPatientOwnership Middleware', () => {
       '../../middlewares/authMiddleware'
     ).authenticateJWT;
     mockAuthenticateJWT.mockImplementationOnce(
-      (req: Request, _res: Response, next: NextFunction) => {
-        req.user = { id: 1, role: 'patient' as const };
+      (
+        req: AuthenticatedRequest,
+        _res: Response,
+        next: NextFunction
+      ) => {
+        req.user = {
+          id: 1,
+          role: 'patient' as const,
+          tokenVersion: 0,
+        };
         next();
       }
     );
@@ -107,8 +125,12 @@ describe('verifyPatientOwnership Middleware', () => {
       '../../middlewares/authMiddleware'
     ).authenticateJWT;
     mockAuthenticateJWT.mockImplementationOnce(
-      (req: Request, _res: Response, next: NextFunction) => {
-        req.user = { id: 2, role: 'admin' as const };
+      (
+        req: AuthenticatedRequest,
+        _res: Response,
+        next: NextFunction
+      ) => {
+        req.user = { id: 2, role: 'admin' as const, tokenVersion: 0 };
         next();
       }
     );
@@ -129,8 +151,16 @@ describe('verifyPatientOwnership Middleware', () => {
       '../../middlewares/authMiddleware'
     ).authenticateJWT;
     mockAuthenticateJWT.mockImplementationOnce(
-      (req: Request, _res: Response, next: NextFunction) => {
-        req.user = { id: 2, role: 'clinician' as const };
+      (
+        req: AuthenticatedRequest,
+        _res: Response,
+        next: NextFunction
+      ) => {
+        req.user = {
+          id: 2,
+          role: 'clinician' as const,
+          tokenVersion: 0,
+        };
         next();
       }
     );
@@ -151,8 +181,12 @@ describe('verifyPatientOwnership Middleware', () => {
       '../../middlewares/authMiddleware'
     ).authenticateJWT;
     mockAuthenticateJWT.mockImplementationOnce(
-      (req: Request, _res: Response, next: NextFunction) => {
-        req.user = { id: 2, role: 'staff' as const };
+      (
+        req: AuthenticatedRequest,
+        _res: Response,
+        next: NextFunction
+      ) => {
+        req.user = { id: 2, role: 'staff' as const, tokenVersion: 0 };
         next();
       }
     );
@@ -308,13 +342,18 @@ describe('Patient Routes', () => {
 
     it('should return 403 for unauthorized role', async () => {
       (authorizeRole as jest.Mock).mockImplementation(
-        () => (_req: Request, res: Response, _next: NextFunction) => {
-          res.status(403).json({
-            code: 'ACCESS_DENIED',
-            message: 'Insufficient permissions for this operation',
-          });
-          return;
-        }
+        () =>
+          (
+            _req: AuthenticatedRequest,
+            res: Response,
+            _next: NextFunction
+          ) => {
+            res.status(403).json({
+              code: 'ACCESS_DENIED',
+              message: 'Insufficient permissions for this operation',
+            });
+            return;
+          }
       );
       mockPatientService.createPatient.mockImplementationOnce(() => {
         throw new Error('Should not be called');
@@ -324,8 +363,16 @@ describe('Patient Routes', () => {
         '../../middlewares/authMiddleware'
       ).authenticateJWT;
       mockAuthenticateJWT.mockImplementationOnce(
-        (req: Request, _res: Response, next: NextFunction) => {
-          req.user = { id: 1, role: 'patient' as const };
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'patient' as const,
+            tokenVersion: 0,
+          };
           next();
         }
       );
@@ -391,8 +438,16 @@ describe('Patient Routes', () => {
         '../../middlewares/authMiddleware'
       ).authenticateJWT;
       mockAuthenticateJWT.mockImplementationOnce(
-        (req: Request, _res: Response, next: NextFunction) => {
-          req.user = { id: 2, role: 'patient' as const };
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 2,
+            role: 'patient' as const,
+            tokenVersion: 0,
+          };
           next();
         }
       );
@@ -412,13 +467,662 @@ describe('Patient Routes', () => {
     });
   });
 
-  describe('PUT /patients/:id', () => {});
+  describe('PUT /patients/:id', () => {
+    it('should successfully update a patient with valid data', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
 
-  describe('Role Modification Authorization', () => {});
+      const updatedPatient = {
+        ...mockPatient,
+        firstName: 'Jane',
+        lastName: 'Smith',
+        email: 'jane.smith@example.com',
+      };
+      mockPatientService.updatePatient.mockResolvedValueOnce(
+        updatedPatient
+      );
 
-  describe('PATCH /patients/:id - Role Modification', () => {});
+      const response = await request(app).put('/patients/1').send({
+        firstName: 'Jane',
+        lastName: 'Smith',
+        email: 'jane.smith@example.com',
+        dateOfBirth: '1995-05-15',
+        gender: Gender.FEMALE,
+        phoneNumber: '+15559876543',
+        address: '123 Main St',
+        city: 'Anytown',
+        zipCode: '12345',
+      });
 
-  describe('ZIP Code Handling', () => {});
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+        })
+      );
+      expect(mockPatientService.updatePatient).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+        }),
+        { id: 1 }
+      );
+    });
+
+    it('should return 403 for unauthorized roles', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'patient' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const response = await request(app).put('/patients/1').send({
+        firstName: 'Jane',
+        lastName: 'Smith',
+        email: 'jane.smith@example.com',
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          code: 'ACCESS_DENIED',
+          message: 'Insufficient permissions for this operation',
+        })
+      );
+    });
+
+    it('should return 400 for validation errors', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const response = await request(app).put('/patients/1').send({
+        email: 'invalid-email', // Invalid email format
+        dateOfBirth: 'invalid-date', // Invalid date format
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+          }),
+        })
+      );
+    });
+
+    it('should return 409 for duplicate email errors', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      mockPatientService.updatePatient.mockRejectedValueOnce(
+        new Error('duplicate key value violates unique constraint')
+      );
+
+      // Mock the error handling to simulate database constraint violation
+      const originalImplementation = mockPatientService.updatePatient;
+      mockPatientService.updatePatient.mockImplementationOnce(
+        async () => {
+          const error: any = new Error(
+            'duplicate key value violates unique constraint'
+          );
+          error.code = '23505';
+          throw error;
+        }
+      );
+
+      const response = await request(app).put('/patients/1').send({
+        email: 'duplicate@example.com',
+      });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'DUPLICATE_EMAIL',
+            message: 'Email already exists',
+          }),
+        })
+      );
+
+      // Restore original implementation
+      mockPatientService.updatePatient.mockImplementation(
+        originalImplementation
+      );
+    });
+
+    it('should return 400 for invalid patient ID', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const response = await request(app)
+        .put('/patients/invalid')
+        .send({
+          firstName: 'Jane',
+          lastName: 'Smith',
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'INVALID_PATIENT_ID',
+            message: 'Invalid patient ID',
+          }),
+        })
+      );
+    });
+
+    it('should return 404 when patient is not found', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      mockPatientService.updatePatient.mockRejectedValueOnce(
+        new Error('Patient not found')
+      );
+
+      // Mock the error handling to simulate patient not found
+      const originalImplementation = mockPatientService.updatePatient;
+      mockPatientService.updatePatient.mockImplementationOnce(
+        async () => {
+          throw new PatientNotFoundError();
+        }
+      );
+
+      const response = await request(app).put('/patients/999').send({
+        firstName: 'Jane',
+        lastName: 'Smith',
+      });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'PATIENT_NOT_FOUND',
+            message: 'Patient not found',
+          }),
+        })
+      );
+
+      // Restore original implementation
+      mockPatientService.updatePatient.mockImplementation(
+        originalImplementation
+      );
+    });
+
+    it('should handle empty update data gracefully', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      mockPatientService.getPatientById.mockResolvedValueOnce(
+        mockPatient
+      );
+
+      const response = await request(app).put('/patients/1').send({});
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          id: 1,
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+        })
+      );
+    });
+
+    it('should handle null values for optional fields', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const updatedPatient = {
+        ...mockPatient,
+        address: null,
+        city: null,
+        zipCode: null,
+        phoneNumber: null,
+      };
+      mockPatientService.updatePatient.mockResolvedValueOnce(
+        updatedPatient
+      );
+
+      const response = await request(app).put('/patients/1').send({
+        address: null,
+        city: null,
+        zipCode: null,
+        phoneNumber: null,
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          address: null,
+          city: null,
+          zipCode: null,
+          phoneNumber: null,
+        })
+      );
+    });
+  });
+
+  describe('Role Modification Authorization', () => {
+    it('should prevent non-admin users from modifying roles', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'clinician' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const response = await request(app).patch('/patients/1').send({
+        role: 'admin',
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        code: 'ACCESS_DENIED',
+        message: 'Insufficient permissions for this operation',
+      });
+    });
+
+    it('should allow admin users to modify roles', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const updatedPatient = {
+        ...mockPatient,
+        role: 'clinician',
+      };
+      mockPatientService.updatePatient.mockResolvedValueOnce(
+        updatedPatient
+      );
+
+      const response = await request(app).patch('/patients/1').send({
+        role: 'clinician',
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          role: 'clinician',
+        })
+      );
+    });
+  });
+
+  describe('PATCH /patients/:id - Role Modification', () => {
+    it('should successfully modify a patient role when requested by admin', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const updatedPatient = {
+        ...mockPatient,
+        role: 'staff',
+      };
+      mockPatientService.updatePatient.mockResolvedValueOnce(
+        updatedPatient
+      );
+
+      const response = await request(app).patch('/patients/2').send({
+        role: 'staff',
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          id: 2,
+          role: 'staff',
+        })
+      );
+      expect(mockPatientService.updatePatient).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          role: 'staff',
+        }),
+        { id: 1, role: 'admin' }
+      );
+    });
+
+    it('should return 403 when non-admin tries to modify role', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 2,
+            role: 'clinician' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const response = await request(app).patch('/patients/1').send({
+        role: 'admin',
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        code: 'ACCESS_DENIED',
+        message: 'Insufficient permissions for this operation',
+      });
+    });
+
+    it('should return 400 for invalid role values', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const response = await request(app).patch('/patients/1').send({
+        role: 'invalid-role',
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+          }),
+        })
+      );
+    });
+  });
+
+  describe('ZIP Code Handling', () => {
+    it('should accept valid ZIP codes', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const updatedPatient = {
+        ...mockPatient,
+        zipCode: '12345',
+      };
+      mockPatientService.updatePatient.mockResolvedValueOnce(
+        updatedPatient
+      );
+
+      const response = await request(app).put('/patients/1').send({
+        zipCode: '12345',
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          zipCode: '12345',
+        })
+      );
+    });
+
+    it('should reject invalid ZIP codes', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const response = await request(app).put('/patients/1').send({
+        zipCode: 'invalid-zip',
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+          }),
+        })
+      );
+    });
+
+    it('should handle ZIP codes with optional +4 extension', async () => {
+      const mockAuthenticateJWT = jest.requireMock(
+        '../../middlewares/authMiddleware'
+      ).authenticateJWT;
+      mockAuthenticateJWT.mockImplementationOnce(
+        (
+          req: AuthenticatedRequest,
+          _res: Response,
+          next: NextFunction
+        ) => {
+          req.user = {
+            id: 1,
+            role: 'admin' as const,
+            tokenVersion: 0,
+          };
+          next();
+        }
+      );
+
+      const updatedPatient = {
+        ...mockPatient,
+        zipCode: '12345-6789',
+      };
+      mockPatientService.updatePatient.mockResolvedValueOnce(
+        updatedPatient
+      );
+
+      const response = await request(app).put('/patients/1').send({
+        zipCode: '12345-6789',
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          zipCode: '12345-6789',
+        })
+      );
+    });
+  });
 });
 
 describe('PATCH /patients/:id', () => {
@@ -447,8 +1151,16 @@ describe('PATCH /patients/:id', () => {
       '../../middlewares/authMiddleware'
     ).authenticateJWT;
     mockAuthenticateJWT.mockImplementationOnce(
-      (req: Request, _res: Response, next: NextFunction) => {
-        req.user = { id: 2, role: 'patient' as const };
+      (
+        req: AuthenticatedRequest,
+        _res: Response,
+        next: NextFunction
+      ) => {
+        req.user = {
+          id: 2,
+          role: 'patient' as const,
+          tokenVersion: 0,
+        };
         next();
       }
     );
@@ -517,8 +1229,16 @@ describe('DELETE /patients/:id', () => {
       '../../middlewares/authMiddleware'
     ).authenticateJWT;
     mockAuthenticateJWT.mockImplementationOnce(
-      (req: Request, _res: Response, next: NextFunction) => {
-        req.user = { id: 1, role: 'patient' as const };
+      (
+        req: AuthenticatedRequest,
+        _res: Response,
+        next: NextFunction
+      ) => {
+        req.user = {
+          id: 1,
+          role: 'patient' as const,
+          tokenVersion: 0,
+        };
         next();
       }
     );
@@ -537,8 +1257,16 @@ describe('DELETE /patients/:id', () => {
       '../../middlewares/authMiddleware'
     ).authenticateJWT;
     mockAuthenticateJWT.mockImplementationOnce(
-      (req: Request, _res: Response, next: NextFunction) => {
-        req.user = { id: 1, role: 'patient' as const }; // Patient role is not authorized for DELETE /patients/:id
+      (
+        req: AuthenticatedRequest,
+        _res: Response,
+        next: NextFunction
+      ) => {
+        req.user = {
+          id: 1,
+          role: 'patient' as const,
+          tokenVersion: 0,
+        }; // Patient role is not authorized for DELETE /patients/:id
         next();
       }
     );
@@ -562,8 +1290,12 @@ describe('DELETE /patients/:id', () => {
       '../../middlewares/authMiddleware'
     ).authenticateJWT;
     mockAuthenticateJWT.mockImplementationOnce(
-      (req: Request, _res: Response, next: NextFunction) => {
-        req.user = { id: 1, role: 'admin' as const };
+      (
+        req: AuthenticatedRequest,
+        _res: Response,
+        next: NextFunction
+      ) => {
+        req.user = { id: 1, role: 'admin' as const, tokenVersion: 0 };
         next();
       }
     );
