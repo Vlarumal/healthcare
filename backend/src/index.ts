@@ -39,9 +39,9 @@ if (!process.env.CORS_ORIGIN) {
     'SERVER_ERROR'
   );
 }
-const allowedOrigins = process.env.CORS_ORIGIN;
-// ? process.env.CORS_ORIGIN.split(',')
-// : ['http://localhost:5173', 'http://localhost:3001', 'https://healthcare-2rmw.onrender.com', 'https://healthcare-as0g.onrender.com'];
+const allowedOrigins = process.env.CORS_ORIGIN
+? process.env.CORS_ORIGIN.split(',')
+: ['http://localhost:5173', 'http://localhost:3001', 'https://healthcare-2rmw.onrender.com', 'https://healthcare-as0g.onrender.com'];
 
 app.use(
   cors({

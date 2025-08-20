@@ -22,6 +22,10 @@ export const createCsrfMiddleware = () => {
     throw new Error('CSRF secret not configured');
   }
 
+  const cookieDomain = process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN
+    ? process.env.COOKIE_DOMAIN
+    : undefined;
+
   const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
     getSecret: () => process.env.CSRF_SECRET!,
     getSessionIdentifier,
@@ -30,8 +34,8 @@ export const createCsrfMiddleware = () => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       httpOnly: true,
+      domain: cookieDomain,
       maxAge: 3600000, // 1 hour expiration
-      domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
     },
     size: 64,
     ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
