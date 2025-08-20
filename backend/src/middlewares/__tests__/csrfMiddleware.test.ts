@@ -189,7 +189,7 @@ describe('CSRF Middleware', () => {
         headers: {}
       } as Request;
       
-      expect(getSessionIdentifier(req)).toBe('default-session');
+    expect(getSessionIdentifier(req)).toBe('default-session');
     });
 
     it('should use req.cookies.session when available', () => {
@@ -257,6 +257,7 @@ describe('CSRF Middleware', () => {
 
     it('should set Secure flag in production', async () => {
       process.env.NODE_ENV = 'production';
+      process.env.COOKIE_DOMAIN = 'example.com';
       
       const { doubleCsrfProtection: prodCsrfProtection, generateCsrfToken: prodGenerateToken } = createCsrfMiddleware();
       

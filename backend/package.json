@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "ts-node src/index.ts",
-    "build": "NODE_ENV=production tsc",
+    "build": "rimraf build/* && NODE_ENV=production tsc",
     "build:ui": "NODE_ENV=production rm -rf dist && cd ../frontend/ && npm install --include=dev && npm run build && cp -r dist ../backend",
     "build:ui:prod": "NODE_ENV=production rm -rf dist && cd ../frontend/ && npm install --include=dev && npm run build && cp -r dist ../backend/build",
     "start:prod": "NODE_ENV=production node build/index.js",

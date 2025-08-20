@@ -326,6 +326,16 @@ router.post(
   })
 );
 
+router.get('/csrf-refresh', (req, res) => {
+  try {
+    const { generateCsrfToken } = createCsrfMiddleware();
+    const token = generateCsrfToken(req, res);
+    res.json({ csrfToken: token });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to refresh CSRF token' });
+  }
+});
+
 router.get(
   '/me',
   authenticateJWT,

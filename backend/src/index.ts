@@ -146,12 +146,16 @@ const globalLimiter = rateLimit({
 //   legacyHeaders: false,
 // });
 
-const trustProxyCount = process.env.TRUST_PROXY_COUNT
-  ? parseInt(process.env.TRUST_PROXY_COUNT)
-  : process.env.NODE_ENV === 'production'
-  ? 1
-  : 1;
-app.set('trust proxy', trustProxyCount);
+// const trustProxyCount = process.env.TRUST_PROXY_COUNT
+//   ? parseInt(process.env.TRUST_PROXY_COUNT)
+//   : process.env.NODE_ENV === 'production'
+//   ? 1
+//   : 1;
+// app.set('trust proxy', trustProxyCount);
+// app.set('trust proxy', true)
+
+// Ensure Express respects X-Forwarded-Proto header for secure cookies
+app.enable('trust proxy');
 
 app.use(globalLimiter);
 

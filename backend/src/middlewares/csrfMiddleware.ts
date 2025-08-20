@@ -4,7 +4,7 @@ dotenv.config();
 import { Request } from 'express';
 import { doubleCsrf } from 'csrf-csrf';
 import logger from '../utils/logger';
-import { cookieDomain, CSRF_SECRET, isProduction } from '../config';
+import { cookieDomain, CSRF_SECRET } from '../config';
 import { InternalServerError } from '../errors/httpErrors';
 
 const getSessionIdentifier = (req: Request): string => {
@@ -44,7 +44,7 @@ export const createCsrfMiddleware = () => {
     throw new Error('CSRF secret not configured');
   }
 
-  if (isProduction && !cookieDomain) {
+  if (process.env.NODE_ENV === 'production' && !cookieDomain) {
     logger.error('COOKIE_DOMAIN environment variable is not set');
     throw new InternalServerError(
       'Internal server error',
@@ -66,9 +66,11 @@ export const createCsrfMiddleware = () => {
     cookieName: 'csrfToken',
     cookieOptions: {
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      // secure: isProduction,
+      sameSite: 'strict', // Always use strict for better security
+      // sameSite: isProduction ? 'strict' : 'lax', // Adjust for cross-site in production ('none')
       httpOnly: true,
-      ...((cookieDomain && isProduction && process.env.NODE_ENV !== 'test') && { domain: cookieDomain }),
+      ...((cookieDomain && process.env.NODE_ENV === 'production') && { domain: cookieDomain }),
       maxAge: 3600000, // 1 hour expiration
     },
     size: 64,
