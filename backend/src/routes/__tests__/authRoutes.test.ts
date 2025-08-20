@@ -7,7 +7,9 @@ import cookieParser from 'cookie-parser';
 import { AppDataSource } from '../../../src/data-source';
 import authRoutes from '../authRoutes';
 import errorHandler from '../../middlewares/errorHandler';
-import { doubleCsrfProtection as csrfMiddleware } from '../../middlewares/csrfMiddleware';
+import { createCsrfMiddleware } from '../../middlewares/csrfMiddleware';
+
+const { doubleCsrfProtection: csrfMiddleware } = createCsrfMiddleware();
 import * as tokenService from '../../services/tokenService';
 import bcrypt from 'bcrypt';
 import { setTemporaryPassword } from '../../utils/tempPasswordUtils';
@@ -78,6 +80,15 @@ jest.mock('../../middlewares/csrfMiddleware', () => ({
     next();
   }),
   generateCsrfToken: jest.fn().mockReturnValue('mock-csrf-token'),
+  createCsrfMiddleware: jest.fn().mockReturnValue({
+    doubleCsrfProtection: jest.fn((req, _res, next) => {
+      console.log(
+        `CSRF middleware called for ${req.method} ${req.path}`
+      );
+      next();
+    }),
+    generateCsrfToken: jest.fn().mockReturnValue('mock-csrf-token'),
+  }),
 }));
 
 let csrfTokenMock = 'mock-csrf-token';
@@ -319,7 +330,7 @@ describe('Auth Routes', () => {
             firstName: 'John',
             lastName: 'Doe',
             email: 'john.doe@example.com',
-            password: 'weakpassword123!', // No uppercase letter
+            password: 'weakpassword123!',
             dateOfBirth: '1990-01-01',
           });
 
@@ -1438,7 +1449,6 @@ describe('Auth Routes', () => {
 
         expect(response.status).toBe(500);
 
-        // Restore console.error
         consoleErrorSpy.mockRestore();
       });
     });
@@ -1813,17 +1823,26 @@ describe('Auth Routes', () => {
         );
 
         const mockCsrfToken = 'new-csrf-token';
-        const generateCsrfTokenMock = jest.requireMock(
+        const mockCreateCsrfMiddleware = jest.requireMock(
           '../../middlewares/csrfMiddleware'
-        ).generateCsrfToken;
-        generateCsrfTokenMock.mockReturnValue(mockCsrfToken);
+        ).createCsrfMiddleware;
+        
+        const mockDoubleCsrfProtection = jest.fn((_req, _res, next) => {
+          next();
+        });
+        const mockGenerateCsrfToken = jest.fn().mockReturnValue(mockCsrfToken);
+        
+        mockCreateCsrfMiddleware.mockReturnValue({
+          doubleCsrfProtection: mockDoubleCsrfProtection,
+          generateCsrfToken: mockGenerateCsrfToken,
+        });
 
         const response = await request(app)
           .post('/auth/logout')
           .set('Cookie', ['refreshToken=valid-refresh-token']);
 
         expect(response.status).toBe(204);
-        expect(generateCsrfTokenMock).toHaveBeenCalledWith(
+        expect(mockGenerateCsrfToken).toHaveBeenCalledWith(
           expect.any(Object),
           expect.any(Object),
           { overwrite: true }

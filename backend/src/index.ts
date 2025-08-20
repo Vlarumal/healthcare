@@ -3,10 +3,9 @@ import cors from 'cors';
 // import { QueryRunner } from 'typeorm';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import {
-  doubleCsrfProtection,
-  generateCsrfToken,
-} from './middlewares/csrfMiddleware';
+import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
+
+const { doubleCsrfProtection, generateCsrfToken } = createCsrfMiddleware();
 import patientRoutes from './routes/patientRoutes';
 import medicalHistoryRoutes from './routes/medicalHistoryRoutes';
 import errorHandler from './middlewares/errorHandler';

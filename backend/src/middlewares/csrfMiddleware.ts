@@ -1,20 +1,42 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { Request } from 'express';
 import { doubleCsrf } from 'csrf-csrf';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import logger from '../utils/logger';
+import { cookieDomain, CSRF_SECRET, isProduction } from '../config';
+import { InternalServerError } from '../errors/httpErrors';
 
 const getSessionIdentifier = (req: Request): string => {
   if (req.cookies && req.cookies.session) {
     return req.cookies.session;
   }
-  
-  if (req.ip) return req.ip;
-  const forwarded = req.headers['x-forwarded-for'];
-  if (Array.isArray(forwarded)) {
-    return forwarded[0];
+
+  if (req.ip) {
+    return req.ip;
   }
-  return forwarded || 'default';
+
+  const forwarded = req.headers['x-forwarded-for'];
+  if (Array.isArray(forwarded) && forwarded.length > 0) {
+    // Return the first IP in the array (client IP)
+    return forwarded[0].split(',')[0].trim();
+  }
+  
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    return forwarded.split(',')[0].trim();
+  }
+
+  const realIp = req.headers['x-real-ip'];
+  if (typeof realIp === 'string' && realIp.length > 0) {
+    return realIp.trim();
+  }
+
+  const cfConnectingIp = req.headers['cf-connecting-ip'];
+  if (typeof cfConnectingIp === 'string' && cfConnectingIp.length > 0) {
+    return cfConnectingIp.trim();
+  }
+
+  return 'default-session';
 };
 
 export const createCsrfMiddleware = () => {
@@ -22,35 +44,44 @@ export const createCsrfMiddleware = () => {
     throw new Error('CSRF secret not configured');
   }
 
-  const cookieDomain = process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN
-    ? process.env.COOKIE_DOMAIN
-    : undefined;
+  if (isProduction && !cookieDomain) {
+    logger.error('COOKIE_DOMAIN environment variable is not set');
+    throw new InternalServerError(
+      'Internal server error',
+      'SERVER_ERROR'
+    );
+  }
+  
+  if (!CSRF_SECRET) {
+    logger.error('CSRF_SECRET environment variable is not set');
+    throw new InternalServerError(
+      'Internal server error',
+      'SERVER_ERROR'
+    );
+  }
 
   const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
-    getSecret: () => process.env.CSRF_SECRET!,
+    getSecret: () => CSRF_SECRET,
     getSessionIdentifier,
     cookieName: 'csrfToken',
     cookieOptions: {
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      sameSite: 'strict',
       httpOnly: true,
-      domain: cookieDomain,
+      ...((cookieDomain && isProduction && process.env.NODE_ENV !== 'test') && { domain: cookieDomain }),
       maxAge: 3600000, // 1 hour expiration
     },
     size: 64,
     ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
     errorConfig: {
       code: 'CSRF_TOKEN_MISSING_OR_INVALID',
-      message: 'CSRF token missing or invalid'
-    }
+      message: 'CSRF token missing or invalid',
+    },
   });
 
   return { doubleCsrfProtection, generateCsrfToken };
 };
 
-const { doubleCsrfProtection, generateCsrfToken } = createCsrfMiddleware();
 export {
-  doubleCsrfProtection,
-  generateCsrfToken,
-  getSessionIdentifier
+  getSessionIdentifier,
 };

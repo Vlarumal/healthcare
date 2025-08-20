@@ -30,7 +30,7 @@ import {
 import { ValidationError } from '../errors/validationError';
 import { PasswordService } from '../services/passwordService';
 import { setTemporaryPassword } from '../utils/tempPasswordUtils';
-import { generateCsrfToken } from '../middlewares/csrfMiddleware';
+import { createCsrfMiddleware } from '../middlewares/csrfMiddleware';
 import { validate } from '../middlewares/validationMiddleware';
 import {
   signupSchema,
@@ -664,6 +664,7 @@ router.post(
       }
     }
 
+    const { generateCsrfToken } = createCsrfMiddleware();
     generateCsrfToken(req, res, { overwrite: true });
 
     res

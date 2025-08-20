@@ -3,10 +3,12 @@ import express, {
   Request,
   Response as ExpressResponse,
 } from 'express';
-import { createCsrfMiddleware, doubleCsrfProtection, generateCsrfToken, getSessionIdentifier } from '../csrfMiddleware';
+import { createCsrfMiddleware, getSessionIdentifier } from '../csrfMiddleware';
 import cookieParser from 'cookie-parser';
 import { doubleCsrf } from 'csrf-csrf';
 import errorHandler from '../errorHandler';
+
+const { doubleCsrfProtection, generateCsrfToken } = createCsrfMiddleware();
 
 describe('CSRF Middleware', () => {
   let app: express.Express;
@@ -187,7 +189,7 @@ describe('CSRF Middleware', () => {
         headers: {}
       } as Request;
       
-      expect(getSessionIdentifier(req)).toBe('default');
+      expect(getSessionIdentifier(req)).toBe('default-session');
     });
 
     it('should use req.cookies.session when available', () => {

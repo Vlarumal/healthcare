@@ -9,3 +9,7 @@ export const REFRESH_TOKEN_EXPIRES_IN_MS = REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 
 
 export const ACCESS_TOKEN_EXPIRES_IN = `${ACCESS_TOKEN_EXPIRES_IN_MINUTES}m`;
 export const REFRESH_TOKEN_EXPIRES_IN = `${REFRESH_TOKEN_EXPIRES_IN_DAYS}d`;
+
+export const cookieDomain = process.env.COOKIE_DOMAIN || '';
+export const isProduction = process.env.NODE_ENV === 'production';
+export const CSRF_SECRET = process.env.CSRF_SECRET || '';
