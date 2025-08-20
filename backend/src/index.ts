@@ -113,7 +113,7 @@ app.use((_req, res, next) => {
 // const buildPath = path.join(__dirname, 'dist');
 // app.use(express.static(buildPath));
 
-app.use(express.static('dist'));
+app.use(express.static('../frontend/dist'));
 // // Serve static files with CORS headers
 // app.use(express.static('dist', {
 //   setHeaders: (res, path) => {
@@ -146,16 +146,16 @@ const globalLimiter = rateLimit({
 //   legacyHeaders: false,
 // });
 
-// const trustProxyCount = process.env.TRUST_PROXY_COUNT
-//   ? parseInt(process.env.TRUST_PROXY_COUNT)
-//   : process.env.NODE_ENV === 'production'
-//   ? 1
-//   : 1;
-// app.set('trust proxy', trustProxyCount);
+const trustProxyCount = process.env.TRUST_PROXY_COUNT
+  ? parseInt(process.env.TRUST_PROXY_COUNT)
+  : process.env.NODE_ENV === 'production'
+  ? 1
+  : 1;
+app.set('trust proxy', trustProxyCount);
 // app.set('trust proxy', true)
 
 // Ensure Express respects X-Forwarded-Proto header for secure cookies
-app.enable('trust proxy');
+// app.enable('trust proxy');
 
 app.use(globalLimiter);
 
@@ -199,7 +199,7 @@ async function initializeServer() {
     );
 
     app.get(/^(?!\/api).*/, (_req, res) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+      res.sendFile(path.resolve(__dirname, '../../frontend/dist', 'index.html'));
     });
 
     app.use(errorHandler);
