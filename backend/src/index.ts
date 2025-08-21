@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
 
 const { doubleCsrfProtection, generateCsrfToken } =
-createCsrfMiddleware();
+  createCsrfMiddleware();
 
 import patientRoutes from './routes/patientRoutes';
 import medicalHistoryRoutes from './routes/medicalHistoryRoutes';
@@ -37,20 +37,26 @@ app.use(express.json());
 
 if (process.env.NODE_ENV === 'production') {
   if (!process.env.FRONTEND_URL) {
-    logger.error('FRONTEND_URL environment variable is not set in production');
+    logger.error(
+      'FRONTEND_URL environment variable is not set in production'
+    );
     throw new InternalServerError(
       'Internal server error',
       'SERVER_ERROR'
     );
   }
-  
+
   app.use(
     cors({
       origin: process.env.FRONTEND_URL,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
-      exposedHeaders: ['Set-Cookie']
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'x-csrf-token',
+      ],
+      exposedHeaders: ['Set-Cookie'],
     })
   );
 } else {
@@ -72,7 +78,11 @@ if (process.env.NODE_ENV === 'production') {
         }
       },
       credentials: true,
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-CSRF-Token',
+      ],
       exposedHeaders: ['Set-Cookie'],
     })
   );
@@ -170,6 +180,7 @@ app.use(cookieParser());
 app.use((req, res, next) => {
   if (!req.cookies.sessionId) {
     const sessionId = crypto.randomUUID();
+
     const cookieOptions: {
       httpOnly: boolean;
       secure: boolean;
@@ -182,14 +193,19 @@ app.use((req, res, next) => {
       sameSite, // 'none' Required for cross-domain like render.com
       maxAge: 86400000, // 24 hours
     };
-    
+
     if (process.env.NODE_ENV === 'production' && cookieDomain) {
       cookieOptions.domain = cookieDomain;
     }
-    
+
     res.cookie('sessionId', sessionId, cookieOptions);
     req.cookies.sessionId = sessionId;
   }
+
+  // Attach session ID to request for CSRF middleware
+  req.session = req.session || {};
+  req.session.id = req.cookies.sessionId;
+
   next();
 });
 
@@ -288,17 +304,9 @@ app.get('/health', (_req, res: Response) => {
 
 app.get('/api/csrf-token', (req, res) => {
   try {
-    // Ensure sessionId exists before generating token
-    if (!req.cookies.sessionId) {
-      // If sessionId is missing, create one (should be rare since sessionId middleware runs first)
-      const sessionId = crypto.randomUUID();
-      res.cookie('sessionId', sessionId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'none',
-        maxAge: 86400000 // 24 hours
-      });
-      req.cookies.sessionId = sessionId;
+    if (!req.session?.id) {
+      res.status(400).json({ error: 'Session not initialized' });
+      return;
     }
 
     const token = generateCsrfToken(req, res);

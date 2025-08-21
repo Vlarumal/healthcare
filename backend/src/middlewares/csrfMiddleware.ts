@@ -7,7 +7,19 @@ import logger from '../utils/logger';
 import { cookieDomain, CSRF_SECRET } from '../config';
 import { InternalServerError } from '../errors/httpErrors';
 
-const getSessionIdentifier = (_req: Request): string => '';
+const getSessionIdentifier = (req: Request): string => {
+  if (req.session && req.session.id) {
+    return req.session.id;
+  }
+  
+  if (req.user && (req.user as any).id) {
+    return (req.user as any).id;
+  }
+  
+  const ip = req.ip || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'] || '';
+  return require('crypto').createHash('sha256').update(`${ip}-${userAgent}`).digest('hex');
+};
 
 export const createCsrfMiddleware = () => {
   if (!process.env.CSRF_SECRET) {
