@@ -12,13 +12,13 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
-// let csrfToken: string | null = null;
-// let csrfTokenPromise: Promise<string> | null = null;
+let csrfToken: string | null = null;
+let csrfTokenPromise: Promise<string> | null = null;
 
-// export const resetCsrfToken = () => {
-//   csrfToken = null;
-//   csrfTokenPromise = null;
-// };
+export const resetCsrfToken = () => {
+  csrfToken = null;
+  csrfTokenPromise = null;
+};
 
 // Centralized error handler
 function handleApiError(
@@ -87,73 +87,73 @@ interface ExtendedAxiosRequestConfig extends AxiosRequestConfig {
   _retry?: boolean;
 }
 
-// const fetchCsrfToken = async (): Promise<string> => {
-//   try {
-//     const response = await apiClient.get('/api/csrf-token', {
-//       timeout: 5000,
-//     });
-//     const token = response.data.csrfToken;
-//     if (typeof token !== 'string') {
-//       throw new Error('Invalid CSRF token format');
-//     }
-//     return token;
-//   } catch (err) {
-//     if (axios.isAxiosError(err) && err.code === 'ECONNABORTED') {
-//       throw Object.assign(new Error(`CSRF token request timed out`), {
-//         code: 'ECONNABORTED',
-//         isTimeout: true,
-//       });
-//     }
+const fetchCsrfToken = async (): Promise<string> => {
+  try {
+    const response = await apiClient.get('/api/csrf-token', {
+      timeout: 5000,
+    });
+    const token = response.data.csrfToken;
+    if (typeof token !== 'string') {
+      throw new Error('Invalid CSRF token format');
+    }
+    return token;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.code === 'ECONNABORTED') {
+      throw Object.assign(new Error(`CSRF token request timed out`), {
+        code: 'ECONNABORTED',
+        isTimeout: true,
+      });
+    }
 
-//     throw err;
-//   }
-// };
+    throw err;
+  }
+};
 
-// export const getCsrfToken = async (): Promise<string> => {
-//   if (csrfToken) {
-//     return csrfToken;
-//   }
+export const getCsrfToken = async (): Promise<string> => {
+  if (csrfToken) {
+    return csrfToken;
+  }
 
-//   if (csrfTokenPromise) {
-//     return csrfTokenPromise;
-//   }
+  if (csrfTokenPromise) {
+    return csrfTokenPromise;
+  }
 
-//   csrfTokenPromise = fetchCsrfToken()
-//     .then((token) => {
-//       csrfToken = token;
-//       return token;
-//     })
-//     .catch((err) => {
-//       if (err.code === 'ECONNABORTED' && err.isTimeout) {
-//         throw Object.assign(
-//           new Error(`Failed to retrieve CSRF token: ${err.message}`),
-//           {
-//             code: err.code,
-//             isTimeout: true,
-//           }
-//         );
-//       }
+  csrfTokenPromise = fetchCsrfToken()
+    .then((token) => {
+      csrfToken = token;
+      return token;
+    })
+    .catch((err) => {
+      if (err.code === 'ECONNABORTED' && err.isTimeout) {
+        throw Object.assign(
+          new Error(`Failed to retrieve CSRF token: ${err.message}`),
+          {
+            code: err.code,
+            isTimeout: true,
+          }
+        );
+      }
 
-//       const enhancedError = new Error(
-//         `Failed to retrieve CSRF token: ${err.message}`,
-//         { cause: err }
-//       );
-//       enhancedError.name = err.name || 'CSRF_ERROR';
+      const enhancedError = new Error(
+        `Failed to retrieve CSRF token: ${err.message}`,
+        { cause: err }
+      );
+      enhancedError.name = err.name || 'CSRF_ERROR';
 
-//       const rest = Object.fromEntries(
-//         Object.entries(err).filter(
-//           ([key]) => key !== 'message' && key !== 'name'
-//         )
-//       );
-//       Object.assign(enhancedError, rest);
-//       throw enhancedError;
-//     })
-//     .finally(() => {
-//       csrfTokenPromise = null;
-//     });
+      const rest = Object.fromEntries(
+        Object.entries(err).filter(
+          ([key]) => key !== 'message' && key !== 'name'
+        )
+      );
+      Object.assign(enhancedError, rest);
+      throw enhancedError;
+    })
+    .finally(() => {
+      csrfTokenPromise = null;
+    });
 
-//   return csrfTokenPromise;
-// };
+  return csrfTokenPromise;
+};
 
 let globalLogoutHandler: (() => Promise<void>) | null = null;
 
@@ -173,8 +173,8 @@ export const setupApiInterceptors = (
         config.method?.toLowerCase() || ''
       )
     ) {
-      // const token = await getCsrfToken();
-      // config.headers['x-csrf-token'] = token;
+      const token = await getCsrfToken();
+      config.headers['x-csrf-token'] = token;
     }
     return config;
   });
@@ -197,28 +197,28 @@ export const setupApiInterceptors = (
         }
       }
 
-      // if (
-      //   error.response?.status === 403 &&
-      //   (error.response.data?.code === 'EBADCSRFTOKEN' ||
-      //     error.response.data?.code === 'INVALID_CSRF_TOKEN' ||
-      //     error.response.data?.code ===
-      //       'CSRF_TOKEN_MISSING_OR_INVALID')
-      // ) {
-      //   try {
-      //     const { csrfToken } = await apiRequest<{
-      //       csrfToken: string;
-      //     }>('GET', '/api/csrf-token');
+      if (
+        error.response?.status === 403 &&
+        (error.response.data?.code === 'EBADCSRFTOKEN' ||
+          error.response.data?.code === 'INVALID_CSRF_TOKEN' ||
+          error.response.data?.code ===
+            'CSRF_TOKEN_MISSING_OR_INVALID')
+      ) {
+        try {
+          const { csrfToken } = await apiRequest<{
+            csrfToken: string;
+          }>('GET', '/api/csrf-token');
 
-      //     if (csrfToken) {
-      //       originalRequest.headers['x-csrf-token'] = csrfToken;
-      //       return apiClient(originalRequest);
-      //     }
-      //   } catch (refreshError) {
-      //     if (import.meta.env.DEV) {
-      //       console.error('CSRF refresh failed:', refreshError);
-      //     }
-      //   }
-      // }
+          if (csrfToken) {
+            originalRequest.headers['x-csrf-token'] = csrfToken;
+            return apiClient(originalRequest);
+          }
+        } catch (refreshError) {
+          if (import.meta.env.DEV) {
+            console.error('CSRF refresh failed:', refreshError);
+          }
+        }
+      }
 
       if (
         error.response?.status === 401 &&
