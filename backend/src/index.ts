@@ -3,10 +3,11 @@ import cors from 'cors';
 // import { QueryRunner } from 'typeorm';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import crypto from 'crypto';
 // import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
 
 // const { doubleCsrfProtection, generateCsrfToken } =
-  // createCsrfMiddleware();
+// createCsrfMiddleware();
 import patientRoutes from './routes/patientRoutes';
 import medicalHistoryRoutes from './routes/medicalHistoryRoutes';
 import errorHandler from './middlewares/errorHandler';
@@ -31,6 +32,7 @@ import { getJWKS } from './services/keysService';
 dotenv.config();
 
 const app: Application = express();
+app.set('trust proxy', process.env.TRUST_PROXY_COUNT);
 app.use(express.json());
 
 if (!process.env.CORS_ORIGIN) {
@@ -145,27 +147,59 @@ app.use(express.static('../frontend/dist'));
 //   : 1;
 // app.set('trust proxy', trustProxyCount);
 // app.set('trust proxy', process.env.NODE_ENV === 'production');
-app.set('trust proxy', 3);
+// app.set('trust proxy', process.env.TRUST_PROXY_COUNT);
 
 // Ensure Express respects X-Forwarded-Proto header for secure cookies
 // app.enable('trust proxy');
 
 app.use(cookieParser());
 
-// // Create session ID first so CSRF middleware can access it
-// app.use((req, res, next) => {
-//   if (!req.cookies.sessionId) {
-//     const sessionId = crypto.randomUUID();
-//     res.cookie('sessionId', sessionId, {
-//       httpOnly: true,
-//       secure: process.env.NODE_ENV === 'production',
-//       sameSite: 'lax',
-//       maxAge: 86400000 // 24 hours
-//     });
-//     req.cookies.sessionId = sessionId;
-//   }
-//   next();
-// });
+let sameSite: 'lax' | 'strict' | 'none' | boolean | undefined;
+if (process.env.COOKIE_SAMESITE) {
+  const validValues = ['lax', 'strict', 'none', 'true', 'false'];
+  if (validValues.includes(process.env.COOKIE_SAMESITE)) {
+    if (process.env.COOKIE_SAMESITE === 'true') {
+      sameSite = true;
+    } else if (process.env.COOKIE_SAMESITE === 'false') {
+      sameSite = false;
+    } else {
+      sameSite = process.env.COOKIE_SAMESITE as
+        | 'lax'
+        | 'strict'
+        | 'none';
+    }
+  } else {
+    logger.warn(
+      `COOKIE_SAMESITE value: ${process.env.COOKIE_SAMESITE}. Using 'lax' in production, 'strict' in development.`
+    );
+  }
+}
+
+if (sameSite === undefined) {
+  sameSite = process.env.NODE_ENV === 'production' ? 'lax' : 'strict';
+}
+
+let httpOnly = true;
+if (process.env.COOKIE_HTTPONLY !== undefined) {
+  httpOnly = process.env.COOKIE_HTTPONLY.toLowerCase() === 'true';
+} else {
+  logger.warn('COOKIE_HTTPONLY not set, using default httpOnly=true');
+}
+
+// Create session ID first so CSRF middleware can access it
+app.use((req, res, next) => {
+  if (!req.cookies.sessionId) {
+    const sessionId = crypto.randomUUID();
+    res.cookie('sessionId', sessionId, {
+      httpOnly,
+      secure: process.env.NODE_ENV === 'production', // Always true on Render
+      sameSite, // 'none' Required for cross-domain like render.com
+      maxAge: 86400000, // 24 hours
+    });
+    req.cookies.sessionId = sessionId;
+  }
+  next();
+});
 
 // const globalLimiter = rateLimit({
 //   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -274,7 +308,7 @@ app.get('/health', (_req, res: Response) => {
 //       });
 //       req.cookies.sessionId = sessionId;
 //     }
-    
+
 //     const token = generateCsrfToken(req, res);
 //     res.json({ csrfToken: token });
 //   } catch (error) {
