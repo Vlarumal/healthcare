@@ -56,7 +56,7 @@ if (process.env.NODE_ENV === 'production') {
     cors({
       origin: process.env.FRONTEND_URL,
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
       exposedHeaders: ['Set-Cookie']
     })
