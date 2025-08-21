@@ -144,7 +144,8 @@ app.use(express.static('../frontend/dist'));
 //   ? 1
 //   : 1;
 // app.set('trust proxy', trustProxyCount);
-app.set('trust proxy', process.env.NODE_ENV === 'production');
+// app.set('trust proxy', process.env.NODE_ENV === 'production');
+app.set('trust proxy', 3);
 
 // Ensure Express respects X-Forwarded-Proto header for secure cookies
 // app.enable('trust proxy');
