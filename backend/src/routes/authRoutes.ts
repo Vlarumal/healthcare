@@ -675,8 +675,8 @@ router.post(
       }
     }
 
-    const { generateCsrfToken } = createCsrfMiddleware();
-    generateCsrfToken(req, res, { overwrite: true });
+    // const { generateCsrfToken } = createCsrfMiddleware();
+    // generateCsrfToken(req, res, { overwrite: true });
 
     res
       .clearCookie('accessToken', {

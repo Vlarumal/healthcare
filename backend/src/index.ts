@@ -3,10 +3,10 @@ import cors from 'cors';
 // import { QueryRunner } from 'typeorm';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
+// import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
 
-const { doubleCsrfProtection, generateCsrfToken } =
-  createCsrfMiddleware();
+// const { doubleCsrfProtection, generateCsrfToken } =
+  // createCsrfMiddleware();
 import patientRoutes from './routes/patientRoutes';
 import medicalHistoryRoutes from './routes/medicalHistoryRoutes';
 import errorHandler from './middlewares/errorHandler';
@@ -151,19 +151,20 @@ app.set('trust proxy', process.env.NODE_ENV === 'production');
 
 app.use(cookieParser());
 
-app.use((req, res, next) => {
-  if (!req.cookies.sessionId) {
-    const sessionId = crypto.randomUUID();
-    res.cookie('sessionId', sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 86400000, // 24 hours
-    });
-    req.cookies.sessionId = sessionId;
-  }
-  next();
-});
+// // Create session ID first so CSRF middleware can access it
+// app.use((req, res, next) => {
+//   if (!req.cookies.sessionId) {
+//     const sessionId = crypto.randomUUID();
+//     res.cookie('sessionId', sessionId, {
+//       httpOnly: true,
+//       secure: process.env.NODE_ENV === 'production',
+//       sameSite: 'lax',
+//       maxAge: 86400000 // 24 hours
+//     });
+//     req.cookies.sessionId = sessionId;
+//   }
+//   next();
+// });
 
 // const globalLimiter = rateLimit({
 //   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -186,19 +187,19 @@ app.use((req, res, next) => {
 
 // app.use(globalLimiter);
 
-app.use((req, res, next) => {
-  if (
-    ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ||
-    req.path === '/api/csrf-token' ||
-    req.path === '/api/auth/csrf-refresh'
-  ) {
-    next();
-  } else {
-    if (process.env.CSRF_PROTECTION) {
-      doubleCsrfProtection(req, res, next);
-    }
-  }
-});
+// app.use((req, res, next) => {
+//   if (
+//     ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ||
+//     req.path === '/api/csrf-token' ||
+//     req.path === '/api/auth/csrf-refresh'
+//   ) {
+//     next();
+//   } else {
+//     if (process.env.CSRF_PROTECTION) {
+//       doubleCsrfProtection(req, res, next);
+//     }
+//   }
+// });
 
 const PORT = process.env.PORT;
 
@@ -258,28 +259,28 @@ app.get('/health', (_req, res: Response) => {
   });
 });
 
-app.get('/api/csrf-token', (req, res) => {
-  try {
-    // if (!req.cookies.session) {
-    //   const sessionId = getSessionIdentifier(req);
-    //   res.cookie('session', sessionId, {
-    //     httpOnly: true,
-    //     secure: process.env.NODE_ENV === 'production' && process.env.PROXY_SECURE === 'true',
-    //     sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'strict',
-    //     ...(process.env.NODE_ENV === 'production' && {
-    //       domain: process.env.COOKIE_DOMAIN || '.onrender.com'
-    //     }),
-    //     maxAge: 3600000 // 1 hour
-    //   });
-    // }
+// app.get('/api/csrf-token', (req, res) => {
+//   try {
+//     // Ensure sessionId exists before generating token
+//     if (!req.cookies.sessionId) {
+//       // If sessionId is missing, create one (should be rare since sessionId middleware runs first)
+//       const sessionId = crypto.randomUUID();
+//       res.cookie('sessionId', sessionId, {
+//         httpOnly: true,
+//         secure: process.env.NODE_ENV === 'production',
+//         sameSite: 'lax',
+//         maxAge: 86400000 // 24 hours
+//       });
+//       req.cookies.sessionId = sessionId;
+//     }
     
-    const token = generateCsrfToken(req, res);
-    res.json({ csrfToken: token });
-  } catch (error) {
-    logger.error('Error generating CSRF token:', error);
-    res.status(500).json({ error: 'CSRF token not available' });
-  }
-});
+//     const token = generateCsrfToken(req, res);
+//     res.json({ csrfToken: token });
+//   } catch (error) {
+//     logger.error('Error generating CSRF token:', error);
+//     res.status(500).json({ error: 'CSRF token not available' });
+//   }
+// });
 
 app.get('/.well-known/jwks.json', (_req, res) => {
   res.json(getJWKS());
