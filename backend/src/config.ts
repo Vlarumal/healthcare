@@ -41,13 +41,13 @@ if (process.env.COOKIE_SAMESITE) {
     }
   } else {
     logger.warn(
-      `COOKIE_SAMESITE value: ${process.env.COOKIE_SAMESITE}. Using 'lax' in production, 'strict' in development.`
+      `COOKIE_SAMESITE value: ${process.env.COOKIE_SAMESITE}. Using 'none' in production for render.com, 'strict' in development.`
     );
   }
 }
 
 if (sameSite === undefined) {
-  sameSite = process.env.NODE_ENV === 'production' ? 'lax' : 'strict';
+  sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'strict';
 }
 
 export let httpOnly = true;

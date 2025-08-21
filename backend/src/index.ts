@@ -20,6 +20,7 @@ import logger from './utils/logger';
 import { InternalServerError } from './errors/httpErrors';
 import path from 'path';
 import { getJWKS } from './services/keysService';
+import { httpOnly, sameSite } from './config';
 
 // declare global {
 //   namespace Express {
@@ -42,36 +43,47 @@ app.enable('trust proxy');
 
 app.use(express.json());
 
-if (!process.env.CORS_ORIGIN) {
-  logger.error('CORS_ORIGIN environment variable is not set');
-  throw new InternalServerError(
-    'Internal server error',
-    'SERVER_ERROR'
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.FRONTEND_URL) {
+    logger.error('FRONTEND_URL environment variable is not set in production');
+    throw new InternalServerError(
+      'Internal server error',
+      'SERVER_ERROR'
+    );
+  }
+  
+  app.use(
+    cors({
+      origin: process.env.FRONTEND_URL,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
+      exposedHeaders: ['Set-Cookie']
+    })
+  );
+} else {
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3001',
+    'https://healthcare-2rmw.onrender.com',
+    'https://healthcare-as0g.onrender.com',
+  ];
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error(`Not allowed by CORS: ${origin}`));
+        }
+      },
+      credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+      exposedHeaders: ['Set-Cookie'],
+    })
   );
 }
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',')
-  : [
-      'http://localhost:5173',
-      'http://localhost:3001',
-      'https://healthcare-2rmw.onrender.com',
-      'https://healthcare-as0g.onrender.com',
-    ];
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`Not allowed by CORS: ${origin}`));
-      }
-    },
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-    exposedHeaders: ['Set-Cookie'],
-  })
-);
 
 if (
   process.env.HELMET !== undefined &&
@@ -160,38 +172,6 @@ app.use(express.static('../frontend/dist'));
 // app.enable('trust proxy');
 
 app.use(cookieParser());
-
-let sameSite: 'lax' | 'strict' | 'none' | boolean | undefined;
-if (process.env.COOKIE_SAMESITE) {
-  const validValues = ['lax', 'strict', 'none', 'true', 'false'];
-  if (validValues.includes(process.env.COOKIE_SAMESITE)) {
-    if (process.env.COOKIE_SAMESITE === 'true') {
-      sameSite = true;
-    } else if (process.env.COOKIE_SAMESITE === 'false') {
-      sameSite = false;
-    } else {
-      sameSite = process.env.COOKIE_SAMESITE as
-        | 'lax'
-        | 'strict'
-        | 'none';
-    }
-  } else {
-    logger.warn(
-      `COOKIE_SAMESITE value: ${process.env.COOKIE_SAMESITE}. Using 'lax' in production, 'strict' in development.`
-    );
-  }
-}
-
-if (sameSite === undefined) {
-  sameSite = process.env.NODE_ENV === 'production' ? 'lax' : 'strict';
-}
-
-let httpOnly = true;
-if (process.env.COOKIE_HTTPONLY !== undefined) {
-  httpOnly = process.env.COOKIE_HTTPONLY.toLowerCase() === 'true';
-} else {
-  logger.warn('COOKIE_HTTPONLY not set, using default httpOnly=true');
-}
 
 // Create session ID first so CSRF middleware can access it
 app.use((req, res, next) => {
@@ -310,7 +290,7 @@ app.get('/health', (_req, res: Response) => {
 //       res.cookie('sessionId', sessionId, {
 //         httpOnly: true,
 //         secure: process.env.NODE_ENV === 'production',
-//         sameSite: 'lax',
+//         sameSite: 'none',
 //         maxAge: 86400000 // 24 hours
 //       });
 //       req.cookies.sessionId = sessionId;

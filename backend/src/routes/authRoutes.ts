@@ -2,7 +2,6 @@ import { Router } from 'express';
 import {
   ACCESS_TOKEN_EXPIRES_IN_MS,
   httpOnly,
-  REFRESH_TOKEN_EXPIRES_IN_DAYS,
   REFRESH_TOKEN_EXPIRES_IN_MS,
   sameSite,
 } from '../config';
@@ -156,33 +155,23 @@ router.post(
     res
       .cookie('accessToken', accessToken, {
         httpOnly,
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
-        domain:
-          process.env.NODE_ENV === 'production'
-            ? process.env.COOKIE_DOMAIN || undefined
-            : undefined,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
+        domain: process.env.NODE_ENV === 'production'
+          ? req.hostname
+          : undefined,
         path: '/',
         maxAge: ACCESS_TOKEN_EXPIRES_IN_MS,
       })
       .cookie('refreshToken', refreshToken, {
         httpOnly,
         path: '/',
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
-        domain:
-          process.env.NODE_ENV === 'production'
-            ? process.env.COOKIE_DOMAIN || undefined
-            : undefined,
-        maxAge: REFRESH_TOKEN_EXPIRES_IN_DAYS,
-        expires: new Date(
-          Date.now() +
-            REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000
-        ),
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
+        domain: process.env.NODE_ENV === 'production'
+          ? req.hostname
+          : undefined,
+        maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
       });
 
     const { password: _, ...patientData } = newPatient;
@@ -305,28 +294,22 @@ router.post(
     res
       .cookie('accessToken', accessToken, {
         httpOnly,
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
-        domain:
-          process.env.NODE_ENV === 'production'
-            ? process.env.COOKIE_DOMAIN || undefined
-            : undefined,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
+        domain: process.env.NODE_ENV === 'production'
+          ? req.hostname
+          : undefined,
         path: '/',
         maxAge: ACCESS_TOKEN_EXPIRES_IN_MS,
       })
       .cookie('refreshToken', refreshToken, {
         httpOnly,
         path: '/',
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
-        domain:
-          process.env.NODE_ENV === 'production'
-            ? process.env.COOKIE_DOMAIN || undefined
-            : undefined,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
+        domain: process.env.NODE_ENV === 'production'
+          ? req.hostname
+          : undefined,
         maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
       });
 
@@ -478,21 +461,22 @@ router.post(
     res
       .cookie('accessToken', accessToken, {
         httpOnly,
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
+        domain: process.env.NODE_ENV === 'production'
+          ? req.hostname
+          : undefined,
         path: '/',
         maxAge: ACCESS_TOKEN_EXPIRES_IN_MS,
-        expires: new Date(Date.now() + ACCESS_TOKEN_EXPIRES_IN_MS),
       })
       .cookie('refreshToken', newRefreshToken, {
         httpOnly,
         path: '/',
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
+        domain: process.env.NODE_ENV === 'production'
+          ? req.hostname
+          : undefined,
         maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
       })
       .status(200)
@@ -701,18 +685,21 @@ router.post(
     res
       .clearCookie('accessToken', {
         httpOnly,
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
+        domain: process.env.NODE_ENV === 'production'
+          ? req.hostname
+          : undefined,
+        path: '/',
       })
       .clearCookie('refreshToken', {
         httpOnly,
         path: '/',
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
+        domain: process.env.NODE_ENV === 'production'
+          ? req.hostname
+          : undefined,
       });
 
     res.status(204).send();
