@@ -32,7 +32,14 @@ import { getJWKS } from './services/keysService';
 dotenv.config();
 
 const app: Application = express();
-app.set('trust proxy', process.env.TRUST_PROXY_COUNT);
+// app.set('trust proxy', process.env.TRUST_PROXY_COUNT);
+// app.set('trust proxy', [
+//   '100.20.92.101',
+//   '44.225.181.72',
+//   '44.227.217.144',
+// ]);
+app.enable('trust proxy');
+
 app.use(express.json());
 
 if (!process.env.CORS_ORIGIN) {
