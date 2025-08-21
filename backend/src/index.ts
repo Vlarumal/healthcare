@@ -20,7 +20,7 @@ import logger from './utils/logger';
 import { InternalServerError } from './errors/httpErrors';
 import path from 'path';
 import { getJWKS } from './services/keysService';
-import { httpOnly, sameSite } from './config';
+import { httpOnly, sameSite, cookieDomain } from './config';
 
 dotenv.config();
 
@@ -56,6 +56,7 @@ if (process.env.NODE_ENV === 'production') {
 } else {
   const allowedOrigins = [
     'http://localhost:5173',
+    'http://localhost:4173',
     'http://localhost:3001',
     'https://healthcare-2rmw.onrender.com',
     'https://healthcare-as0g.onrender.com',
@@ -169,12 +170,24 @@ app.use(cookieParser());
 app.use((req, res, next) => {
   if (!req.cookies.sessionId) {
     const sessionId = crypto.randomUUID();
-    res.cookie('sessionId', sessionId, {
+    const cookieOptions: {
+      httpOnly: boolean;
+      secure: boolean;
+      sameSite: boolean | 'lax' | 'strict' | 'none' | undefined;
+      maxAge: number;
+      domain?: string;
+    } = {
       httpOnly,
       secure: process.env.NODE_ENV === 'production', // Always true on Render
       sameSite, // 'none' Required for cross-domain like render.com
       maxAge: 86400000, // 24 hours
-    });
+    };
+    
+    if (process.env.NODE_ENV === 'production' && cookieDomain) {
+      cookieOptions.domain = cookieDomain;
+    }
+    
+    res.cookie('sessionId', sessionId, cookieOptions);
     req.cookies.sessionId = sessionId;
   }
   next();

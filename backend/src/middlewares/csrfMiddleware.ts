@@ -75,13 +75,11 @@ export const createCsrfMiddleware = () => {
     getSessionIdentifier,
     cookieName: 'csrfToken',
     cookieOptions: {
-      secure:
-        process.env.NODE_ENV === 'production' &&
-        process.env.PROXY_SECURE === 'true',
+      secure: process.env.NODE_ENV === 'production',
       sameSite,
       httpOnly,
-      ...(process.env.NODE_ENV === 'production' && {
-        domain: cookieDomain || '.onrender.com',
+      ...(process.env.NODE_ENV === 'production' && cookieDomain && {
+        domain: cookieDomain
       }),
       maxAge: 3600000, // 1 hour expiration
     },
