@@ -3,55 +3,25 @@ dotenv.config();
 
 import { Request } from 'express';
 import { doubleCsrf } from 'csrf-csrf';
-import crypto from 'crypto';
 import logger from '../utils/logger';
 import { cookieDomain, CSRF_SECRET } from '../config';
 import { InternalServerError } from '../errors/httpErrors';
 
-const getSessionIdentifier = (req: Request): string => {
-  if (req.cookies && req.cookies.session) {
-    return req.cookies.session;
-  }
-
-  return crypto.randomUUID();
-};
-
-let sameSite: 'lax' | 'strict' | 'none' | boolean | undefined;
-if (process.env.COOKIE_SAMESITE) {
-  const validValues = ['lax', 'strict', 'none', 'true', 'false'];
-  if (validValues.includes(process.env.COOKIE_SAMESITE)) {
-    if (process.env.COOKIE_SAMESITE === 'true') {
-      sameSite = true;
-    } else if (process.env.COOKIE_SAMESITE === 'false') {
-      sameSite = false;
-    } else {
-      sameSite = process.env.COOKIE_SAMESITE as
-        | 'lax'
-        | 'strict'
-        | 'none';
-    }
-  } else {
-    logger.warn(
-      `COOKIE_SAMESITE value: ${process.env.COOKIE_SAMESITE}. Using 'lax' in production, 'strict' in development.`
-    );
-  }
-}
-
-if (sameSite === undefined) {
-  sameSite = process.env.NODE_ENV === 'production' ? 'lax' : 'strict';
-}
-
-let httpOnly = true;
-if (process.env.COOKIE_HTTPONLY !== undefined) {
-  httpOnly = process.env.COOKIE_HTTPONLY.toLowerCase() === 'true';
-  logger.info(`COOKIE_HTTPONLY=${process.env.COOKIE_HTTPONLY} -> httpOnly=${httpOnly}`);
-} else {
-  logger.warn('COOKIE_HTTPONLY not set, using default httpOnly=true');
-}
+const getSessionIdentifier = (_req: Request): string => '';
 
 export const createCsrfMiddleware = () => {
   if (!process.env.CSRF_SECRET) {
     throw new Error('CSRF secret not configured');
+  }
+
+  if (!process.env.CSRF_SECRET || process.env.CSRF_SECRET === '') {
+    logger.error(
+      'CSRF_SECRET environment variable is not set or is empty'
+    );
+    throw new InternalServerError(
+      'Internal server error',
+      'SERVER_ERROR'
+    );
   }
 
   if (
@@ -65,12 +35,46 @@ export const createCsrfMiddleware = () => {
     );
   }
 
+  let sameSite: 'lax' | 'strict' | 'none' | boolean | undefined;
+  if (process.env.COOKIE_SAMESITE) {
+    const validValues = ['lax', 'strict', 'none', 'true', 'false'];
+    if (validValues.includes(process.env.COOKIE_SAMESITE)) {
+      if (process.env.COOKIE_SAMESITE === 'true') {
+        sameSite = true;
+      } else if (process.env.COOKIE_SAMESITE === 'false') {
+        sameSite = false;
+      } else {
+        sameSite = process.env.COOKIE_SAMESITE as
+          | 'lax'
+          | 'strict'
+          | 'none';
+      }
+    } else {
+      logger.warn(
+        `COOKIE_SAMESITE value: ${process.env.COOKIE_SAMESITE}. Using 'lax' in production, 'strict' in development.`
+      );
+    }
+  }
+
+  if (sameSite === undefined) {
+    sameSite =
+      process.env.NODE_ENV === 'production' ? 'lax' : 'strict';
+  }
+
+  let httpOnly = true;
+  if (process.env.COOKIE_HTTPONLY !== undefined) {
+    httpOnly = process.env.COOKIE_HTTPONLY.toLowerCase() === 'true';
+  } else {
+    logger.warn(
+      'COOKIE_HTTPONLY not set, using default httpOnly=true'
+    );
+  }
+
   const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
     getSecret: () => CSRF_SECRET,
     getSessionIdentifier,
     cookieName: 'csrfToken',
     cookieOptions: {
-      // Use secure cookies only if proxy is handling TLS termination
       secure:
         process.env.NODE_ENV === 'production' &&
         process.env.PROXY_SECURE === 'true',
@@ -91,5 +95,3 @@ export const createCsrfMiddleware = () => {
 
   return { doubleCsrfProtection, generateCsrfToken };
 };
-
-export { getSessionIdentifier };

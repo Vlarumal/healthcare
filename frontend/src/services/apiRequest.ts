@@ -200,7 +200,9 @@ export const setupApiInterceptors = (
       if (
         error.response?.status === 403 &&
         (error.response.data?.code === 'EBADCSRFTOKEN' ||
-          error.response.data?.code === 'INVALID_CSRF_TOKEN')
+          error.response.data?.code === 'INVALID_CSRF_TOKEN' ||
+          error.response.data?.code ===
+            'CSRF_TOKEN_MISSING_OR_INVALID')
       ) {
         try {
           const { csrfToken } = await apiRequest<{

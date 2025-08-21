@@ -43,6 +43,7 @@ import { UserNotFoundError } from '../errors/authErrors';
 import ErrorLogger from '../utils/errorLogger';
 
 const router = Router();
+
 const getPatientRepository = () =>
   AppDataSource.getRepository(Patient);
 

@@ -18,6 +18,7 @@ import helmet from 'helmet';
 import logger from './utils/logger';
 import { InternalServerError } from './errors/httpErrors';
 import path from 'path';
+import { getJWKS } from './services/keysService';
 
 // declare global {
 //   namespace Express {
@@ -63,49 +64,56 @@ app.use(
   })
 );
 
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          'https://gc.kis.v2.scr.kaspersky-labs.com',
-        ],
-        styleSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          'https://gc.kis.v2.scr.kaspersky-labs.com',
-        ],
-        styleSrcElem: [
-          "'self'",
-          'http://gc.kis.v2.scr.kaspersky-labs.com',
-          'ws://gc.kis.v2.scr.kaspersky-labs.com',
-          "'unsafe-inline'",
-        ],
-        imgSrc: ["'self'", 'data:', 'https://flagcdn.com'],
-        connectSrc: [
-          "'self'",
-          'https://gc.kis.v2.scr.kaspersky-labs.com',
-        ],
-        fontSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        upgradeInsecureRequests: [],
+if (
+  process.env.HELMET !== undefined &&
+  process.env.HELMET.toLowerCase() === 'true'
+) {
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: [
+            "'self'",
+            'https://gc.kis.v2.scr.kaspersky-labs.com',
+          ],
+          styleSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            'https://gc.kis.v2.scr.kaspersky-labs.com',
+          ],
+          styleSrcElem: [
+            "'self'",
+            'http://gc.kis.v2.scr.kaspersky-labs.com',
+            'ws://gc.kis.v2.scr.kaspersky-labs.com',
+            "'unsafe-inline'",
+          ],
+          imgSrc: ["'self'", 'data:', 'https://flagcdn.com'],
+          connectSrc: [
+            "'self'",
+            'https://gc.kis.v2.scr.kaspersky-labs.com',
+            'https://healthcare-as0g.onrender.com',
+            'https://healthcare-2rmw.onrender.com',
+          ],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          upgradeInsecureRequests: [],
+        },
       },
-    },
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true,
-    },
-    referrerPolicy: { policy: 'no-referrer' },
-    frameguard: { action: 'deny' },
-    noSniff: true,
-    permittedCrossDomainPolicies: {
-      permittedPolicies: 'none',
-    },
-  })
-);
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
+      referrerPolicy: { policy: 'no-referrer' },
+      frameguard: { action: 'deny' },
+      noSniff: true,
+      permittedCrossDomainPolicies: {
+        permittedPolicies: 'none',
+      },
+    })
+  );
+}
 
 app.use((_req, res, next) => {
   res.setHeader(
@@ -136,12 +144,26 @@ app.use(express.static('../frontend/dist'));
 //   ? 1
 //   : 1;
 // app.set('trust proxy', trustProxyCount);
-app.set('trust proxy', process.env.NODE_ENV === 'production')
+app.set('trust proxy', process.env.NODE_ENV === 'production');
 
 // Ensure Express respects X-Forwarded-Proto header for secure cookies
 // app.enable('trust proxy');
 
 app.use(cookieParser());
+
+app.use((req, res, next) => {
+  if (!req.cookies.sessionId) {
+    const sessionId = crypto.randomUUID();
+    res.cookie('sessionId', sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 86400000, // 24 hours
+    });
+    req.cookies.sessionId = sessionId;
+  }
+  next();
+});
 
 // const globalLimiter = rateLimit({
 //   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -236,28 +258,25 @@ app.get('/health', (_req, res: Response) => {
   });
 });
 
-import { getJWKS } from './services/keysService';
-import { getSessionIdentifier } from './middlewares/csrfMiddleware';
-
 app.get('/api/csrf-token', (req, res) => {
   try {
-    if (!req.cookies.session) {
-      const sessionId = getSessionIdentifier(req);
-      res.cookie('session', sessionId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production' && process.env.PROXY_SECURE === 'true',
-        sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'strict',
-        ...(process.env.NODE_ENV === 'production' && {
-          domain: process.env.COOKIE_DOMAIN || '.onrender.com'
-        }),
-        maxAge: 3600000 // 1 hour
-      });
-    }
+    // if (!req.cookies.session) {
+    //   const sessionId = getSessionIdentifier(req);
+    //   res.cookie('session', sessionId, {
+    //     httpOnly: true,
+    //     secure: process.env.NODE_ENV === 'production' && process.env.PROXY_SECURE === 'true',
+    //     sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'strict',
+    //     ...(process.env.NODE_ENV === 'production' && {
+    //       domain: process.env.COOKIE_DOMAIN || '.onrender.com'
+    //     }),
+    //     maxAge: 3600000 // 1 hour
+    //   });
+    // }
     
     const token = generateCsrfToken(req, res);
     res.json({ csrfToken: token });
   } catch (error) {
-    console.error('Error generating CSRF token:', error);
+    logger.error('Error generating CSRF token:', error);
     res.status(500).json({ error: 'CSRF token not available' });
   }
 });
