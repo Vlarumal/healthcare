@@ -2,11 +2,10 @@ import express, { Application, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import crypto from 'crypto';
-import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
+// import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
 
-const { doubleCsrfProtection, generateCsrfToken } =
-  createCsrfMiddleware();
+// const { doubleCsrfProtection, generateCsrfToken } =
+//   createCsrfMiddleware();
 
 import patientRoutes from './routes/patientRoutes';
 import medicalHistoryRoutes from './routes/medicalHistoryRoutes';
@@ -20,7 +19,7 @@ import logger from './utils/logger';
 import { InternalServerError } from './errors/httpErrors';
 import path from 'path';
 import { getJWKS } from './services/keysService';
-import { httpOnly, sameSite, cookieDomain } from './config';
+// import { httpOnly, sameSite, cookieDomain } from './config';
 
 dotenv.config();
 
@@ -176,38 +175,38 @@ app.use(express.static('../frontend/dist'));
 
 app.use(cookieParser());
 
-// Create session ID first so CSRF middleware can access it
-app.use((req, res, next) => {
-  if (!req.cookies.sessionId) {
-    const sessionId = crypto.randomUUID();
+// // Create session ID first so CSRF middleware can access it
+// app.use((req, res, next) => {
+//   if (!req.cookies.sessionId) {
+//     const sessionId = crypto.randomUUID();
 
-    const cookieOptions: {
-      httpOnly: boolean;
-      secure: boolean;
-      sameSite: boolean | 'lax' | 'strict' | 'none' | undefined;
-      maxAge: number;
-      domain?: string;
-    } = {
-      httpOnly,
-      secure: process.env.NODE_ENV === 'production', // Always true on Render
-      sameSite, // 'none' Required for cross-domain like render.com
-      maxAge: 86400000, // 24 hours
-    };
+//     const cookieOptions: {
+//       httpOnly: boolean;
+//       secure: boolean;
+//       sameSite: boolean | 'lax' | 'strict' | 'none' | undefined;
+//       maxAge: number;
+//       domain?: string;
+//     } = {
+//       httpOnly,
+//       secure: process.env.NODE_ENV === 'production', // Always true on Render
+//       sameSite, // 'none' Required for cross-domain like render.com
+//       maxAge: 86400000, // 24 hours
+//     };
 
-    if (process.env.NODE_ENV === 'production' && cookieDomain) {
-      cookieOptions.domain = cookieDomain;
-    }
+//     if (process.env.NODE_ENV === 'production' && cookieDomain) {
+//       cookieOptions.domain = cookieDomain;
+//     }
 
-    res.cookie('sessionId', sessionId, cookieOptions);
-    req.cookies.sessionId = sessionId;
-  }
+//     res.cookie('sessionId', sessionId, cookieOptions);
+//     req.cookies.sessionId = sessionId;
+//   }
 
-  // Attach session ID to request for CSRF middleware
-  req.session = req.session || {};
-  req.session.id = req.cookies.sessionId;
+//   // Attach session ID to request for CSRF middleware
+//   req.session = req.session || {};
+//   req.session.id = req.cookies.sessionId;
 
-  next();
-});
+//   next();
+// });
 
 // const globalLimiter = rateLimit({
 //   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -230,19 +229,19 @@ app.use((req, res, next) => {
 
 // app.use(globalLimiter);
 
-app.use((req, res, next) => {
-  if (
-    ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ||
-    req.path === '/api/csrf-token' ||
-    req.path === '/api/auth/csrf-refresh'
-  ) {
-    next();
-  } else {
-    if (process.env.CSRF_PROTECTION) {
-      doubleCsrfProtection(req, res, next);
-    }
-  }
-});
+// app.use((req, res, next) => {
+//   if (
+//     ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ||
+//     req.path === '/api/csrf-token' ||
+//     req.path === '/api/auth/csrf-refresh'
+//   ) {
+//     next();
+//   } else {
+//     if (process.env.CSRF_PROTECTION) {
+//       doubleCsrfProtection(req, res, next);
+//     }
+//   }
+// });
 
 const PORT = process.env.PORT;
 
@@ -302,20 +301,20 @@ app.get('/health', (_req, res: Response) => {
   });
 });
 
-app.get('/api/csrf-token', (req, res) => {
-  try {
-    if (!req.session?.id) {
-      res.status(400).json({ error: 'Session not initialized' });
-      return;
-    }
+// app.get('/api/csrf-token', (req, res) => {
+//   try {
+//     if (!req.session?.id) {
+//       res.status(400).json({ error: 'Session not initialized' });
+//       return;
+//     }
 
-    const token = generateCsrfToken(req, res);
-    res.json({ csrfToken: token });
-  } catch (error) {
-    logger.error('Error generating CSRF token:', error);
-    res.status(500).json({ error: 'CSRF token not available' });
-  }
-});
+//     const token = generateCsrfToken(req, res);
+//     res.json({ csrfToken: token });
+//   } catch (error) {
+//     logger.error('Error generating CSRF token:', error);
+//     res.status(500).json({ error: 'CSRF token not available' });
+//   }
+// });
 
 app.get('/.well-known/jwks.json', (_req, res) => {
   res.json(getJWKS());

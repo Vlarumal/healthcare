@@ -1,4 +1,4 @@
-import { apiRequest, resetCsrfToken } from './apiRequest';
+import { apiRequest } from './apiRequest';
 import { ERROR_CODES } from '../constants/errors';
 import { hasIsTimeout, isAxiosErrorWithCode } from '../utils/errorUtils';
 
@@ -11,7 +11,7 @@ export const logout = async () => {
     }
     
     await apiRequest('POST', '/api/auth/logout');
-    resetCsrfToken();
+    // resetCsrfToken();
   } catch (error: unknown) {
     if (isAxiosErrorWithCode(error, 'ECONNABORTED') || hasIsTimeout(error)) {
       throw Object.assign(new Error(ERROR_CODES.CSRF_TIMEOUT_ERROR), {
