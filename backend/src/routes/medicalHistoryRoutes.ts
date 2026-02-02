@@ -26,7 +26,7 @@ const verifyMedicalHistoryAccess = async (req: Request, _res: Response, next: Ne
       return;
     }
 
-    const medicalHistoryId = parseInt(id);
+    const medicalHistoryId = parseInt(id as string, 10);
     const medicalHistory = await AppDataSource.getRepository(MedicalHistory).findOne({
       where: { id: medicalHistoryId },
       relations: ['patient'],
