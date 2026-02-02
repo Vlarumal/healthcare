@@ -158,7 +158,7 @@ export const verifyPatientOwnership = async (
   next: NextFunction
 ) => {
   try {
-    const resolvedId = parseInt(req.params.id);
+    const resolvedId = parseInt(req.params.id as string);
     if (isNaN(resolvedId)) {
       next(
         new HttpError(400, 'INVALID_PATIENT_ID', 'Invalid patient ID')
@@ -216,7 +216,7 @@ router.put(
         typeof PatientUpdateSchema
       >;
 
-      const patientId = parseInt(req.params.id);
+      const patientId = parseInt(req.params.id as string);
       if (isNaN(patientId)) {
         next(
           new HttpError(
@@ -319,7 +319,7 @@ router.patch(
         typeof PatientUpdateSchema
       >;
 
-      const patientId = parseInt(req.params.id);
+      const patientId = parseInt(req.params.id as string);
       if (isNaN(patientId)) {
         next(
           new HttpError(
@@ -562,7 +562,7 @@ router.get(
 
 router.delete('/:id', authorizeAdminOnly, async (req, res, next) => {
   try {
-    const patientId = parseInt(req.params.id);
+    const patientId = parseInt(req.params.id as string);
     if (isNaN(patientId)) {
       next(
         new HttpError(400, 'INVALID_PATIENT_ID', 'Invalid patient ID')

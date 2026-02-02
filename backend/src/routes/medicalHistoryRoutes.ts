@@ -116,7 +116,7 @@ router.get(
   authorizePatientAccess,
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const histories = await AppDataSource.getRepository(MedicalHistory).find({
-      where: { patient: { id: parseInt(req.params.patientId) } },
+      where: { patient: { id: parseInt(req.params.patientId as string) } },
       relations: ['patient'],
       order: { date: 'DESC' },
     });
@@ -140,7 +140,7 @@ router.put(
       AppDataSource.getRepository(MedicalHistory);
 
     const existing = await medicalHistoryRepo.findOneBy({
-      id: parseInt(req.params.id),
+      id: parseInt(req.params.id as string),
     });
 
     if (!existing) {
@@ -181,7 +181,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const result = await AppDataSource.getRepository(
       MedicalHistory
-    ).delete(parseInt(req.params.id));
+    ).delete(parseInt(req.params.id as string));
 
     if (result.affected === 0) {
       next(new NotFoundError('Medical history not found'));
