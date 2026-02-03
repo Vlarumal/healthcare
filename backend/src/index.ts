@@ -6,9 +6,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import path from 'path';
-import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
-
-const { doubleCsrfProtection } = createCsrfMiddleware();
+import { doubleCsrfProtection } from './middlewares/csrfInstance';
 
 import patientRoutes from './routes/patientRoutes';
 import medicalHistoryRoutes from './routes/medicalHistoryRoutes';

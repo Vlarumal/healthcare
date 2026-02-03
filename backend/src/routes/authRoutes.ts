@@ -31,7 +31,7 @@ import {
 import { ValidationError } from '../errors/validationError';
 import { PasswordService } from '../services/passwordService';
 import { setTemporaryPassword } from '../utils/tempPasswordUtils';
-import { createCsrfMiddleware } from '../middlewares/csrfMiddleware';
+import { generateCsrfToken } from '../middlewares/csrfInstance';
 import { validate } from '../middlewares/validationMiddleware';
 import {
   signupSchema,
@@ -324,7 +324,6 @@ router.post(
 
 router.get('/csrf-refresh', (req, res) => {
   try {
-    const { generateCsrfToken } = createCsrfMiddleware();
     const token = generateCsrfToken(req, res);
     res.json({ csrfToken: token });
   } catch (error) {
@@ -679,7 +678,6 @@ router.post(
       }
     }
 
-    const { generateCsrfToken } = createCsrfMiddleware();
     generateCsrfToken(req, res, { overwrite: true });
 
     res
