@@ -5,5 +5,6 @@ export class PatientNotFoundError extends LocalizedError {
     super('Patient not found');
     this.statusCode = 404;
     this.code = 'PATIENT_NOT_FOUND';
+    this.name = 'PatientNotFoundError';
   }
 }

@@ -616,12 +616,7 @@ describe('Patient Routes', () => {
         }
       );
 
-      mockPatientService.updatePatient.mockRejectedValueOnce(
-        new Error('duplicate key value violates unique constraint')
-      );
-
       // Mock the error handling to simulate database constraint violation
-      const originalImplementation = mockPatientService.updatePatient;
       mockPatientService.updatePatient.mockImplementationOnce(
         async () => {
           const error: any = new Error(
@@ -644,11 +639,6 @@ describe('Patient Routes', () => {
             message: 'Email already exists',
           }),
         })
-      );
-
-      // Restore original implementation
-      mockPatientService.updatePatient.mockImplementation(
-        originalImplementation
       );
     });
 
@@ -708,12 +698,7 @@ describe('Patient Routes', () => {
         }
       );
 
-      mockPatientService.updatePatient.mockRejectedValueOnce(
-        new Error('Patient not found')
-      );
-
       // Mock the error handling to simulate patient not found
-      const originalImplementation = mockPatientService.updatePatient;
       mockPatientService.updatePatient.mockImplementationOnce(
         async () => {
           throw new PatientNotFoundError();
@@ -733,11 +718,6 @@ describe('Patient Routes', () => {
             message: 'Patient not found',
           }),
         })
-      );
-
-      // Restore original implementation
-      mockPatientService.updatePatient.mockImplementation(
-        originalImplementation
       );
     });
 
@@ -852,8 +832,11 @@ describe('Patient Routes', () => {
 
       expect(response.status).toBe(403);
       expect(response.body).toEqual({
-        code: 'ACCESS_DENIED',
-        message: 'Insufficient permissions for this operation',
+        error: {
+          code: 'ACCESS_DENIED',
+          message: 'Only administrators can modify user roles',
+          status: 403,
+        },
       });
     });
 
@@ -919,6 +902,7 @@ describe('Patient Routes', () => {
 
       const updatedPatient = {
         ...mockPatient,
+        id: 2,
         role: 'staff',
       };
       mockPatientService.updatePatient.mockResolvedValueOnce(
@@ -937,11 +921,11 @@ describe('Patient Routes', () => {
         })
       );
       expect(mockPatientService.updatePatient).toHaveBeenCalledWith(
-        1,
+        2,
         expect.objectContaining({
           role: 'staff',
         }),
-        { id: 1, role: 'admin' }
+        { id: 1 }
       );
     });
 
@@ -970,8 +954,11 @@ describe('Patient Routes', () => {
 
       expect(response.status).toBe(403);
       expect(response.body).toEqual({
-        code: 'ACCESS_DENIED',
-        message: 'Insufficient permissions for this operation',
+        error: {
+          code: 'ACCESS_DENIED',
+          message: 'Only administrators can modify user roles',
+          status: 403,
+        },
       });
     });
 

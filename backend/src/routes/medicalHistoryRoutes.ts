@@ -33,7 +33,7 @@ const verifyMedicalHistoryAccess = async (req: Request, _res: Response, next: Ne
     });
 
     if (!medicalHistory) {
-      next(new NotFoundError('Medical history not found'));
+      next(new HttpError(404, 'NOT_FOUND', 'Medical history not found'));
       return;
     }
 

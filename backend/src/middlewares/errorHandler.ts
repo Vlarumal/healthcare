@@ -46,6 +46,7 @@ const errorHandler: ErrorRequestHandler = (
   res: Response,
   _next: NextFunction
 ) => {
+  
   const lang = getLanguageFromRequest(req);
   
   if (err && (err.code === 'EBADCSRFTOKEN' || err.code === 'CSRF_TOKEN_MISSING_OR_INVALID')) {
@@ -71,13 +72,17 @@ const errorHandler: ErrorRequestHandler = (
     const details = err.details || [];
     const code = err.code || 'VALIDATION_ERROR';
 
-    ErrorLogger.logError(err, {
-      path: req.path,
-      method: req.method,
-      status,
-      message,
-      ...(err?.id && { errorId: err.id })
-    });
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message,
+        ...(err?.id && { errorId: err.id })
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
 
     sendErrorResponse(res, status, {
       status,
@@ -90,18 +95,22 @@ const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  if (err && err.code === 'DUPLICATE_EMAIL') {
+  if (err && (err.code === 'DUPLICATE_EMAIL' || err.code === 'DUPLICATE_RECORD' || err?.name === 'DuplicateRecordError')) {
     const status = 409;
-    const message = 'Email already exists';
+    const message = err.message || 'Email already exists';
     const details = err.details;
-    const code = 'DUPLICATE_EMAIL';
+    const code = err.code || 'DUPLICATE_EMAIL';
 
-    ErrorLogger.logError(err, {
-      path: req.path,
-      method: req.method,
-      status,
-      message
-    });
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
 
     sendErrorResponse(res, status, {
       status,
@@ -114,22 +123,188 @@ const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  if (err instanceof AccessDeniedError) {
-    const status = 403;
-    const code = 'ACCESS_DENIED';
-    let message = err.message;
+  // Check for ConsentNotFoundError explicitly before PatientNotFoundError
+  if (err?.name === 'ConsentNotFoundError' || err?.code === 'CONSENT_NOT_FOUND') {
+    const status = 404;
+    const code = 'CONSENT_NOT_FOUND';
+    let message = err.message || 'Consent not found';
     try {
       message = localizeError(err, lang);
-    } catch (e) {
-      ErrorLogger.logError(e, { message: 'Localization failed for AccessDeniedError' });
+    } catch {
+      // Localization failed, use default message
+    }
+
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+
+    return;
+  }
+
+  // Check for ConsentExpiredError
+  if (err?.name === 'ConsentExpiredError' || err?.code === 'CONSENT_EXPIRED') {
+    const status = 410;
+    const code = 'CONSENT_EXPIRED';
+    let message = err.message || 'Consent has expired';
+    try {
+      message = localizeError(err, lang);
+    } catch {
+      // Localization failed, use default message
+    }
+
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+
+    return;
+  }
+
+  // Check for InvalidConsentStatusError
+  if (err?.name === 'InvalidConsentStatusError' || err?.code === 'INVALID_CONSENT_STATUS') {
+    const status = 400;
+    const code = 'INVALID_CONSENT_STATUS';
+    let message = err.message || 'Invalid consent status';
+    try {
+      message = localizeError(err, lang);
+    } catch {
+      // Localization failed, use default message
+    }
+
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+
+    return;
+  }
+
+  // Check for RecordNotFoundError explicitly before PatientNotFoundError
+  if (err?.name === 'RecordNotFoundError' || err?.code === 'RECORD_NOT_FOUND') {
+    const status = 404;
+    const code = 'RECORD_NOT_FOUND';
+    let message = err.message || 'Record not found';
+    try {
+      message = localizeError(err, lang);
+    } catch {
+      // Localization failed, use default message
+    }
+
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+
+    return;
+  }
+
+  // Check for UserNotFoundError explicitly before PatientNotFoundError
+  if (err?.name === 'UserNotFoundError' || err?.code === 'USER_NOT_FOUND') {
+    const status = 404;
+    const code = 'USER_NOT_FOUND';
+    let message = err.message || 'User not found';
+    try {
+      message = localizeError(err, lang);
+    } catch {
+      // Localization failed, use default message
+    }
+
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+
+    return;
+  }
+
+  // Check for PatientNotFoundError by name or code only (not generic NotFound)
+  if (err?.name === 'PatientNotFoundError' ||
+      err?.code === 'PATIENT_NOT_FOUND') {
+    const status = 404;
+    const code = 'PATIENT_NOT_FOUND';
+    let message = err.message || 'Patient not found';
+    try {
+      message = localizeError(err, lang);
+    } catch {
+      // Localization failed, use default message
     }
     
-    ErrorLogger.logError(err, {
-      path: req.path,
-      method: req.method,
-      status,
-      message
-    });
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
 
     sendErrorResponse(res, status, {
       status,
@@ -141,17 +316,211 @@ const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  if (err instanceof LocalizedError) {
-    const status = err.statusCode || 500;
-    const code = err.code || 'INTERNAL_ERROR';
+  // Check for ForbiddenError (must come BEFORE AccessDeniedError check)
+  if (err?.name === 'ForbiddenError' || err?.code === 'FORBIDDEN') {
+    const status = 403;
+    const code = 'FORBIDDEN';
+    let message = err.message || 'Forbidden';
+
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+
+    return;
+  }
+
+  // Check for CsrfValidationError specifically (must come BEFORE AccessDeniedError check)
+  if (err?.name === 'CsrfValidationError' || err?.code === 'CSRF_VALIDATION_FAILED') {
+    const status = 403;
+    const code = 'CSRF_VALIDATION_FAILED';
+    let message = err.message || 'CSRF validation failed';
+
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+
+    return;
+  }
+
+  // Check for AccessDeniedError by instanceof, name, or statusCode/code
+  // NOTE: This should come AFTER specific 403 errors like ForbiddenError and CsrfValidationError
+  if (err instanceof AccessDeniedError ||
+      err?.name === 'AccessDeniedError' ||
+      err?.code === 'ACCESS_DENIED') {
+    const status = 403;
+    const code = 'ACCESS_DENIED';
+    let message = err.message;
+    try {
+      message = localizeError(err, lang);
+    } catch {
+      // Localization failed, use default message
+    }
+    
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+    
+    return;
+  }
+
+  // Check for TokenRotationError
+  if (err?.name === 'TokenRotationError' || err?.code === 'TOKEN_ROTATION_ERROR') {
+    const status = 401;
+    const code = 'TOKEN_ROTATION_ERROR';
+    let message = err.message || 'Token rotation failed';
+    try {
+      message = localizeError(err, lang);
+    } catch {
+      // Localization failed, use default message
+    }
+
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+
+    return;
+  }
+
+  // Check for DatabaseConnectionError
+  if (err?.name === 'DatabaseConnectionError' || err?.code === 'DATABASE_CONNECTION_ERROR') {
+    const status = 500;
+    const code = 'DATABASE_CONNECTION_ERROR';
+    let message = err.message || 'Database connection failed';
+    try {
+      message = localizeError(err, lang);
+    } catch {
+      // Localization failed, use default message
+    }
+
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+
+    return;
+  }
+
+  // Check for DatabaseQueryError
+  if (err?.name === 'DatabaseQueryError' || err?.code === 'DATABASE_QUERY_ERROR') {
+    const status = 500;
+    const code = 'DATABASE_QUERY_ERROR';
+    let message = err.message || 'Database query failed';
+    try {
+      message = localizeError(err, lang);
+    } catch {
+      // Localization failed, use default message
+    }
+
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
+
+    sendErrorResponse(res, status, {
+      status,
+      code,
+      message,
+      stack: err.stack
+    }, uuidv4());
+
+    return;
+  }
+
+  // Check for LocalizedError BUT only if it's not already handled by specific checks above
+  // We check if statusCode is 500 and code is INTERNAL_ERROR (defaults) which means
+  // it's a generic LocalizedError, not a specific subclass like PatientNotFoundError
+  if (err instanceof LocalizedError &&
+      err.statusCode === 500 &&
+      err.code === 'INTERNAL_ERROR') {
+    const status = 500;
+    const code = 'INTERNAL_ERROR';
     const localizedMessage = localizeError(err, lang);
     
-    ErrorLogger.logError(err, {
-      path: req.path,
-      method: req.method,
-      status,
-      message: localizedMessage
-    });
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message: localizedMessage
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
 
     sendErrorResponse(res, status, {
       status,
@@ -163,18 +532,23 @@ const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  if (err instanceof HttpError) {
+  // Check for HttpError by instanceof or statusCode property (for Jest module boundary issues)
+  if ((err instanceof HttpError) || (err?.statusCode && typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600)) {
     const status = err.statusCode;
     const code = err.code || `HTTP_${status}`;
     const message = err.message || 'An error occurred';
     const details = err.details;
 
-    ErrorLogger.logError(err, {
-      path: req.path,
-      method: req.method,
-      status,
-      message
-    });
+    try {
+      ErrorLogger.logError(err, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
 
     const includeStack = process.env.NODE_ENV === 'development';
 
@@ -214,12 +588,16 @@ const errorHandler: ErrorRequestHandler = (
       message = 'An undefined error occurred';
     }
     
-    ErrorLogger.logError(errorObj, {
-      path: req.path,
-      method: req.method,
-      status,
-      message
-    });
+    try {
+      ErrorLogger.logError(errorObj, {
+        path: req.path,
+        method: req.method,
+        status,
+        message
+      });
+    } catch {
+      // Logging failed, continue with error response
+    }
 
     const errorResponse: any = {
       status,

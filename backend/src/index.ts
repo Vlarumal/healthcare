@@ -2,6 +2,7 @@ import express, { Application, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 // import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
 
 // const { doubleCsrfProtection, generateCsrfToken } =
@@ -17,11 +18,11 @@ import helmet from 'helmet';
 // import rateLimit from 'express-rate-limit';
 import logger from './utils/logger';
 import { InternalServerError } from './errors/httpErrors';
-import path from 'path';
 import { getJWKS } from './services/keysService';
 // import { httpOnly, sameSite, cookieDomain } from './config';
 
-dotenv.config();
+// Load .env from the project root (works for both src/ and build/ directories)
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app: Application = express();
 // app.set('trust proxy', process.env.TRUST_PROXY_COUNT);

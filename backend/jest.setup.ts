@@ -1,6 +1,25 @@
 import 'reflect-metadata';
 import 'dotenv/config';
 import { AppDataSource } from './src/data-source';
+
+// Mock the logger to prevent file system errors in tests
+jest.mock('./src/utils/logger', () => ({
+  error: jest.fn(),
+  warn: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+}));
+
+// Mock ErrorLogger to prevent any logging issues in tests
+jest.mock('./src/utils/errorLogger', () => ({
+  __esModule: true,
+  default: {
+    logError: jest.fn(),
+    logWarning: jest.fn(),
+    log: jest.fn(),
+  },
+}));
+
 jest.mock('./src/utils/mailer', () => ({
   transporter: {
     sendMail: jest.fn().mockImplementation(() => Promise.resolve({ messageId: 'mocked-message-id' }))

@@ -77,7 +77,12 @@ export const PatientUpdateSchema = PatientCreateSchema.partial()
       .transform(val => val === "" ? null : val),
     city: z.string().max(50).nullable().optional()
       .transform(val => val === "" ? null : val),
-    zipCode: z.string().nullable().optional()
+    zipCode: z.string()
+      .regex(/^\d{5}(-\d{4})?$/, {
+        message: "Invalid ZIP code format. Expected: 12345 or 12345-6789"
+      })
+      .nullable()
+      .optional()
       .transform(val => val === "" ? null : val),
     phoneNumber: z.string()
       .refine(validatePhoneNumber, {

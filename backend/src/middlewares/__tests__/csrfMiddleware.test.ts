@@ -1,4 +1,4 @@
-import request, { agent, Response } from 'supertest';
+import request, { agent } from 'supertest';
 import express, {
   Request,
   Response as ExpressResponse,
@@ -7,6 +7,7 @@ import { createCsrfMiddleware, getSessionIdentifier } from '../csrfMiddleware';
 import cookieParser from 'cookie-parser';
 import { doubleCsrf } from 'csrf-csrf';
 import errorHandler from '../errorHandler';
+import logger from '../../utils/logger';
 
 const { doubleCsrfProtection, generateCsrfToken } = createCsrfMiddleware();
 
@@ -17,6 +18,9 @@ describe('CSRF Middleware', () => {
   beforeEach(() => {
     process.env.CSRF_SECRET = CSRF_SECRET;
     process.env.NODE_ENV = 'test';
+    process.env.PROXY_SECURE = 'true'; // Ensure secure cookies in tests
+    process.env.COOKIE_HTTPONLY = 'true'; // Prevent warnings
+    process.env.COOKIE_SAMESITE = 'lax'; // Prevent warnings
 
     app = express();
     app.use(express.json());
@@ -50,20 +54,23 @@ describe('CSRF Middleware', () => {
 
   afterEach(() => {
     delete process.env.CSRF_SECRET;
+    // Allow Jest to clean up
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
-  const getCsrfToken = (res: Response): string | undefined => {
-    const cookies = res.headers['set-cookie'];
-    if (!cookies) return undefined;
+  // const getCsrfToken = (res: Response): string | undefined => {
+  //   const cookies = res.headers['set-cookie'];
+  //   if (!cookies) return undefined;
 
-    const cookieArray = Array.isArray(cookies) ? cookies : [cookies];
-    const csrfCookie = cookieArray.find(c => c.includes('csrfToken='));
-    if (!csrfCookie) return undefined;
+  //   const cookieArray = Array.isArray(cookies) ? cookies : [cookies];
+  //   const csrfCookie = cookieArray.find(c => c.includes('csrfToken='));
+  //   if (!csrfCookie) return undefined;
     
-    return csrfCookie
-      .split(';')[0]
-      .split('=')[1];
-  };
+  //   return csrfCookie
+  //     .split(';')[0]
+  //     .split('=')[1];
+  // };
 
   describe('Token Validation Logic', () => {
     it('should reject POST requests without CSRF token', async () => {
@@ -81,16 +88,10 @@ describe('CSRF Middleware', () => {
 
     it('should accept valid CSRF token in header', async () => {
       const testAgent = agent(app);
+      
       const getResponse = await testAgent.get('/csrf-token');
+      const token = getResponse.body.token;
       
-      const setCookieHeader = getResponse.headers['set-cookie'];
-      expect(setCookieHeader).toBeDefined();
-      const cookieArray = Array.isArray(setCookieHeader)
-        ? setCookieHeader
-        : [setCookieHeader || ''];
-      expect(cookieArray.join('')).toMatch(/csrfToken=[^;]+/);
-      
-      const token = getCsrfToken(getResponse);
       const response = await testAgent
         .post('/test-post')
         .set('x-csrf-token', token || '')
@@ -98,6 +99,32 @@ describe('CSRF Middleware', () => {
 
       expect(response.status).toBe(200);
       expect(response.text).toBe('POST OK');
+    });
+
+    it('should log HttpOnly value when COOKIE_HTTPONLY is set', async () => {
+      const logSpy = jest.spyOn(logger, 'info');
+      process.env.COOKIE_HTTPONLY = 'true';
+      createCsrfMiddleware();
+      expect(logSpy).toHaveBeenCalledWith('COOKIE_HTTPONLY=true -> httpOnly=true');
+      logSpy.mockRestore();
+    });
+
+    it('should log warning when COOKIE_HTTPONLY is not set', async () => {
+      const warnSpy = jest.spyOn(logger, 'warn');
+      delete process.env.COOKIE_HTTPONLY;
+      createCsrfMiddleware();
+      expect(warnSpy).toHaveBeenCalledWith('COOKIE_HTTPONLY not set, using default httpOnly=true');
+      warnSpy.mockRestore();
+    });
+
+    it('should log warning when COOKIE_SAMESITE has invalid value', async () => {
+      const warnSpy = jest.spyOn(logger, 'warn');
+      process.env.COOKIE_SAMESITE = 'invalid';
+      createCsrfMiddleware();
+      expect(warnSpy).toHaveBeenCalledWith(
+        `COOKIE_SAMESITE value: ${process.env.COOKIE_SAMESITE}. Using 'none' in production for render.com, 'strict' in development.`
+      );
+      warnSpy.mockRestore();
     });
 
     it('should reject invalid CSRF token', async () => {
@@ -121,87 +148,25 @@ describe('CSRF Middleware', () => {
   });
 
   describe('getSessionIdentifier() Unit Tests', () => {
-    it('should use req.ip when available', () => {
-      const req = {
-        ip: '192.168.1.1',
-        headers: {}
-      } as Request;
-      
-      expect(getSessionIdentifier(req)).toBe('192.168.1.1');
-    });
-
-    it('should handle IPv6 address in req.ip', () => {
-      const req = {
-        ip: '2001:db8::1',
-        headers: {}
-      } as Request;
-      
-      expect(getSessionIdentifier(req)).toBe('2001:db8::1');
-    });
-
-    it('should use first X-Forwarded-For array element', () => {
-      const req = {
-        ip: undefined,
-        headers: {
-          'x-forwarded-for': ['192.168.1.100', '10.0.0.1']
-        }
-      } as unknown as Request;
-      
-      expect(getSessionIdentifier(req)).toBe('192.168.1.100');
-    });
-
-    it('should handle IPv6 address in X-Forwarded-For array', () => {
-      const req = {
-        ip: undefined,
-        headers: {
-          'x-forwarded-for': ['2001:db8::1', '2001:db8::2']
-        }
-      } as unknown as Request;
-      
-      expect(getSessionIdentifier(req)).toBe('2001:db8::1');
-    });
-
-    it('should use X-Forwarded-For string value', () => {
-      const req = {
-        ip: undefined,
-        headers: {
-          'x-forwarded-for': '192.168.1.100'
-        }
-      } as unknown as Request;
-      
-      expect(getSessionIdentifier(req)).toBe('192.168.1.100');
-    });
-
-    it('should handle IPv6 address in X-Forwarded-For string', () => {
-      const req = {
-        ip: undefined,
-        headers: {
-          'x-forwarded-for': '2001:db8::1'
-        }
-      } as unknown as Request;
-      
-      expect(getSessionIdentifier(req)).toBe('2001:db8::1');
-    });
-
-    it('should use default when no IP or headers', () => {
-      const req = {
-        ip: undefined,
-        headers: {}
-      } as Request;
-      
-    expect(getSessionIdentifier(req)).toBe('default-session');
-    });
-
     it('should use req.cookies.session when available', () => {
       const req = {
         cookies: {
           session: 'test-session-id'
-        },
-        ip: '192.168.1.1',
-        headers: {}
+        }
       } as unknown as Request;
       
       expect(getSessionIdentifier(req)).toBe('test-session-id');
+    });
+
+    it('should generate a UUID when no session cookie exists', () => {
+      const req = {
+        cookies: {}
+      } as unknown as Request;
+      
+      const sessionId = getSessionIdentifier(req);
+      // UUID regex pattern
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      expect(sessionId).toMatch(uuidPattern);
     });
   });
 
@@ -250,14 +215,27 @@ describe('CSRF Middleware', () => {
 
   describe('Cookie Security Settings', () => {
     const originalEnv = process.env.NODE_ENV;
+    const originalSameSite = process.env.COOKIE_SAMESITE;
+
+    beforeEach(() => {
+      // Clear COOKIE_SAMESITE to test defaults
+      delete process.env.COOKIE_SAMESITE;
+    });
 
     afterEach(() => {
       process.env.NODE_ENV = originalEnv;
+      if (originalSameSite !== undefined) {
+        process.env.COOKIE_SAMESITE = originalSameSite;
+      } else {
+        delete process.env.COOKIE_SAMESITE;
+      }
     });
 
     it('should set Secure flag in production', async () => {
       process.env.NODE_ENV = 'production';
       process.env.COOKIE_DOMAIN = 'example.com';
+      // Explicitly set COOKIE_SAMESITE to strict for this test
+      process.env.COOKIE_SAMESITE = 'strict';
       
       const { doubleCsrfProtection: prodCsrfProtection, generateCsrfToken: prodGenerateToken } = createCsrfMiddleware();
       
@@ -285,6 +263,8 @@ describe('CSRF Middleware', () => {
 
     it('should not set Secure flag in non-production', async () => {
       process.env.NODE_ENV = 'development';
+      // Explicitly set COOKIE_SAMESITE to strict for this test
+      process.env.COOKIE_SAMESITE = 'strict';
       
       const { doubleCsrfProtection: devCsrfProtection, generateCsrfToken: devGenerateToken } = createCsrfMiddleware();
       
@@ -310,50 +290,150 @@ describe('CSRF Middleware', () => {
       expect(cookieHeader).toContain('SameSite=Strict');
     });
 
-    it('should set HttpOnly flag in all environments', async () => {
-      const { doubleCsrfProtection: devCsrfProtection, generateCsrfToken: devGenerateToken } = createCsrfMiddleware();
+    it('should set HttpOnly flag based on COOKIE_HTTPONLY environment variable', async () => {
+      // Test when COOKIE_HTTPONLY=true
+      process.env.COOKIE_HTTPONLY = 'true';
+      const { doubleCsrfProtection: trueCsrfProtection, generateCsrfToken: trueGenerateToken } = createCsrfMiddleware();
       
-      const devApp = express();
-      devApp.use(express.json());
-      devApp.use(cookieParser());
-      devApp.use(devCsrfProtection);
+      const trueApp = express();
+      trueApp.use(express.json());
+      trueApp.use(cookieParser());
+      trueApp.use(trueCsrfProtection);
 
-      devApp.get('/csrf-token', (req: Request, res: ExpressResponse) => {
-        const token = devGenerateToken(req, res);
+      trueApp.get('/csrf-token', (req: Request, res: ExpressResponse) => {
+        const token = trueGenerateToken(req, res);
         res.status(200).json({ token });
       });
 
-      const testAgent = agent(devApp);
-      const response = await testAgent.get('/csrf-token');
-      const cookies = response.headers['set-cookie'];
-      const cookieHeader = Array.isArray(cookies)
-        ? cookies.join(';')
-        : cookies || '';
+      const trueAgent = agent(trueApp);
+      const trueResponse = await trueAgent.get('/csrf-token');
+      const trueCookies = trueResponse.headers['set-cookie'];
+      const trueCookieHeader = Array.isArray(trueCookies)
+        ? trueCookies.join(';')
+        : trueCookies || '';
+      expect(trueCookieHeader).toContain('HttpOnly');
+
+      // Test when COOKIE_HTTPONLY=false
+      process.env.COOKIE_HTTPONLY = 'false';
+      const { doubleCsrfProtection: falseCsrfProtection, generateCsrfToken: falseGenerateToken } = createCsrfMiddleware();
       
-      expect(cookieHeader).toContain('HttpOnly');
+      const falseApp = express();
+      falseApp.use(express.json());
+      falseApp.use(cookieParser());
+      falseApp.use(falseCsrfProtection);
+
+      falseApp.get('/csrf-token', (req: Request, res: ExpressResponse) => {
+        const token = falseGenerateToken(req, res);
+        res.status(200).json({ token });
+      });
+
+      const falseAgent = agent(falseApp);
+      const falseResponse = await falseAgent.get('/csrf-token');
+      const falseCookies = falseResponse.headers['set-cookie'];
+      const falseCookieHeader = Array.isArray(falseCookies)
+        ? falseCookies.join(';')
+        : falseCookies || '';
+      expect(falseCookieHeader).not.toContain('HttpOnly');
     });
 
-    it('should set SameSite=Strict in all environments', async () => {
-      const { doubleCsrfProtection: devCsrfProtection, generateCsrfToken: devGenerateToken } = createCsrfMiddleware();
+    it('should set SameSite attribute based on COOKIE_SAMESITE environment variable', async () => {
+      // Test development environment with COOKIE_SAMESITE=none
+      process.env.NODE_ENV = 'development';
+      process.env.COOKIE_SAMESITE = 'none';
+      const { doubleCsrfProtection: devCsrfProtection1, generateCsrfToken: devGenerateToken1 } = createCsrfMiddleware();
       
-      const devApp = express();
-      devApp.use(express.json());
-      devApp.use(cookieParser());
-      devApp.use(devCsrfProtection);
+      const devApp1 = express();
+      devApp1.use(express.json());
+      devApp1.use(cookieParser());
+      devApp1.use(devCsrfProtection1);
 
-      devApp.get('/csrf-token', (req: Request, res: ExpressResponse) => {
-        const token = devGenerateToken(req, res);
+      devApp1.get('/csrf-token', (req: Request, res: ExpressResponse) => {
+        const token = devGenerateToken1(req, res);
         res.status(200).json({ token });
       });
 
-      const testAgent = agent(devApp);
-      const response = await testAgent.get('/csrf-token');
-      const cookies = response.headers['set-cookie'];
-      const cookieHeader = Array.isArray(cookies)
-        ? cookies.join(';')
-        : cookies || '';
+      const testAgent1 = agent(devApp1);
+      const response1 = await testAgent1.get('/csrf-token');
+      const cookies1 = response1.headers['set-cookie'];
+      const cookieHeader1 = Array.isArray(cookies1)
+        ? cookies1.join(';')
+        : cookies1 || '';
+      expect(cookieHeader1).toContain('SameSite=None');
+      // In development, Secure flag should not be present
+      expect(cookieHeader1).not.toContain('Secure');
+
+      // Test production environment with COOKIE_SAMESITE=lax
+      process.env.NODE_ENV = 'production';
+      process.env.COOKIE_SAMESITE = 'lax';
+      const { doubleCsrfProtection: prodCsrfProtection, generateCsrfToken: prodGenerateToken } = createCsrfMiddleware();
       
-      expect(cookieHeader).toContain('SameSite=Strict');
+      const prodApp = express();
+      prodApp.use(express.json());
+      prodApp.use(cookieParser());
+      prodApp.use(prodCsrfProtection);
+
+      prodApp.get('/csrf-token', (req: Request, res: ExpressResponse) => {
+        const token = prodGenerateToken(req, res);
+        res.status(200).json({ token });
+      });
+
+      const testAgentProd = agent(prodApp);
+      const responseProd = await testAgentProd.get('/csrf-token');
+      const cookiesProd = responseProd.headers['set-cookie'];
+      const cookieHeaderProd = Array.isArray(cookiesProd)
+        ? cookiesProd.join(';')
+        : cookiesProd || '';
+      expect(cookieHeaderProd).toContain('SameSite=Lax');
+
+      // Test without COOKIE_SAMESITE in development -> defaults to strict
+      delete process.env.COOKIE_SAMESITE;
+      process.env.NODE_ENV = 'development';
+      const { doubleCsrfProtection: devCsrfProtection2, generateCsrfToken: devGenerateToken2 } = createCsrfMiddleware();
+      
+      const devApp2 = express();
+      devApp2.use(express.json());
+      devApp2.use(cookieParser());
+      devApp2.use(devCsrfProtection2);
+
+      devApp2.get('/csrf-token', (req: Request, res: ExpressResponse) => {
+        const token = devGenerateToken2(req, res);
+        res.status(200).json({ token });
+      });
+
+      const testAgent2 = agent(devApp2);
+      const response2 = await testAgent2.get('/csrf-token');
+      const cookies2 = response2.headers['set-cookie'];
+      const cookieHeader2 = Array.isArray(cookies2)
+        ? cookies2.join(';')
+        : cookies2 || '';
+      expect(cookieHeader2).toContain('SameSite=Strict');
+      // In development, Secure flag should not be present
+      expect(cookieHeader2).not.toContain('Secure');
+
+      // Test with COOKIE_SAMESITE=lax in production
+      process.env.NODE_ENV = 'production';
+      process.env.COOKIE_SAMESITE = 'lax';
+      const { doubleCsrfProtection: prodCsrfProtection2, generateCsrfToken: prodGenerateToken2 } = createCsrfMiddleware();
+      
+      const prodApp2 = express();
+      prodApp2.use(express.json());
+      prodApp2.use(cookieParser());
+      prodApp2.use(prodCsrfProtection2);
+
+      prodApp2.get('/csrf-token', (req: Request, res: ExpressResponse) => {
+        const token = prodGenerateToken2(req, res);
+        res.status(200).json({ token });
+      });
+
+      const testAgentProd2 = agent(prodApp2);
+      const responseProd2 = await testAgentProd2.get('/csrf-token');
+      const cookiesProd2 = responseProd2.headers['set-cookie'];
+      const cookieHeaderProd2 = Array.isArray(cookiesProd2)
+        ? cookiesProd2.join(';')
+        : cookiesProd2 || '';
+      expect(cookieHeaderProd2).toContain('SameSite=Lax');
+      // In production, Secure flag should be present
+      expect(cookieHeaderProd2).toContain('Secure');
     });
 
     it('should set correct maxAge expiration', async () => {

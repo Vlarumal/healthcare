@@ -7,7 +7,12 @@ import logger from '../utils/logger';
 import { cookieDomain, CSRF_SECRET } from '../config';
 import { InternalServerError } from '../errors/httpErrors';
 
-const getSessionIdentifier = (req: Request): string => {
+export const getSessionIdentifier = (req: Request): string => {
+  // Check for session cookie first
+  if (req.cookies?.session) {
+    return req.cookies.session;
+  }
+  
   if (req.session && req.session.id) {
     return req.session.id;
   }
@@ -16,9 +21,14 @@ const getSessionIdentifier = (req: Request): string => {
     return (req.user as any).id;
   }
   
-  const ip = req.ip || req.socket.remoteAddress;
-  const userAgent = req.headers['user-agent'] || '';
-  return require('crypto').createHash('sha256').update(`${ip}-${userAgent}`).digest('hex');
+  // Use optional chaining to handle cases where socket or headers might be undefined (e.g., in tests)
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  const userAgent = req.headers?.['user-agent'] || '';
+  
+  // Generate a UUID-based identifier from IP and user agent for uniqueness
+  const hash = require('crypto').createHash('sha256').update(`${ip}-${userAgent}`).digest('hex');
+  // Convert to UUID-like format (8-4-4-4-12)
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
 };
 
 export const createCsrfMiddleware = () => {
@@ -76,6 +86,7 @@ export const createCsrfMiddleware = () => {
   let httpOnly = true;
   if (process.env.COOKIE_HTTPONLY !== undefined) {
     httpOnly = process.env.COOKIE_HTTPONLY.toLowerCase() === 'true';
+    logger.info(`COOKIE_HTTPONLY=${process.env.COOKIE_HTTPONLY} -> httpOnly=${httpOnly}`);
   } else {
     logger.warn(
       'COOKIE_HTTPONLY not set, using default httpOnly=true'

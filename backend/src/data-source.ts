@@ -3,10 +3,12 @@ import { Patient } from './entities/Patient';
 import { MedicalHistory } from './entities/MedicalHistory';
 import { Consent } from './entities/Consent';
 import { AuditLog } from './entities/AuditLog';
-import dotenv from 'dotenv'
+import dotenv from 'dotenv';
+import path from 'path';
 import { Token } from './entities/Token';
 
-dotenv.config();
+// Load .env from the project root (works for both src/ and build/ directories)
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 export const AppDataSource = new DataSource({
   type: 'postgres',

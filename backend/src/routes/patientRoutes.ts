@@ -189,6 +189,25 @@ export const verifyPatientOwnership = async (
     (req as any).patient = patient;
     next();
   } catch (error) {
+    const errName = (error as any)?.name;
+    const errCode = (error as any)?.code;
+    const errStatusCode = (error as any)?.statusCode;
+    
+    // Check by name/code to handle Jest module boundary issues
+    if (errName === 'PatientNotFoundError' || errCode === 'PATIENT_NOT_FOUND') {
+      next(new PatientNotFoundError());
+      return;
+    }
+    if (errName === 'AccessDeniedError' || errCode === 'ACCESS_DENIED') {
+      next(new AccessDeniedError((error as Error).message || 'Access denied'));
+      return;
+    }
+    if (errName === 'HttpError' || errStatusCode) {
+      next(error);
+      return;
+    }
+    
+    // Fallback instanceof checks
     if (error instanceof HttpError || error instanceof PatientNotFoundError || error instanceof AccessDeniedError) {
       next(error);
       return;
@@ -292,11 +311,37 @@ router.put(
       const { password, ...sanitizedPatient } = updatedPatient;
       res.status(200).json(sanitizedPatient);
     } catch (error) {
-      if ((error as any).code === '23505') {
-        next(new DuplicateRecordError('email', req.body.email));
-      } else if (error instanceof PatientNotFoundError) {
+      // Check error by properties first to handle Jest module boundary issues
+      const errName = (error as any)?.name;
+      const errCode = (error as any)?.code;
+      const errStatusCode = (error as any)?.statusCode;
+      
+      // Check for PatientNotFoundError by name or code
+      if (errName === 'PatientNotFoundError' || errCode === 'PATIENT_NOT_FOUND') {
         next(new PatientNotFoundError());
-      } else if (error instanceof Error) {
+        return;
+      }
+      
+      // Check for DuplicateRecordError by name or code
+      if (errName === 'DuplicateRecordError' || errCode === '23505' || errCode === 'DUPLICATE_EMAIL') {
+        next(new DuplicateRecordError('email', req.body.email));
+        return;
+      }
+      
+      // Propagate HttpErrors (by instanceof or statusCode presence)
+      if (error instanceof HttpError || errStatusCode) {
+        next(error);
+        return;
+      }
+      
+      // Handle PostgreSQL unique constraint violation
+      if (errCode === '23505') {
+        next(new DuplicateRecordError('email', req.body.email));
+        return;
+      }
+      
+      // Generic error handling
+      if (error instanceof Error) {
         logger.error('Patient update failed:', error);
         next(new InternalServerError(error.message));
       } else {
@@ -397,10 +442,15 @@ router.patch(
       const { password, ...sanitizedPatient } = updatedPatient;
       res.status(200).json(sanitizedPatient);
     } catch (error) {
-      if ((error as any).code === '23505') {
-        next(new DuplicateRecordError('email', req.body.email));
+      // Propagate custom HTTP errors that already have status codes
+      if (error instanceof HttpError || (error as any)?.statusCode) {
+        next(error);
       } else if (error instanceof PatientNotFoundError) {
-        next(new PatientNotFoundError());
+        next(error);
+      } else if (error instanceof DuplicateRecordError) {
+        next(error);
+      } else if ((error as any).code === '23505') {
+        next(new DuplicateRecordError('email', req.body.email));
       } else if (error instanceof Error) {
         logger.error('Patient update failed:', error);
         next(new InternalServerError(error.message));

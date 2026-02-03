@@ -6,6 +6,7 @@ export class DatabaseConnectionError extends LocalizedError {
     super(message);
     this.statusCode = 500;
     this.code = 'DATABASE_CONNECTION_ERROR';
+    this.name = 'DatabaseConnectionError';
   }
 }
 
@@ -29,6 +30,7 @@ export class RecordNotFoundError extends LocalizedError {
     super(`${recordType} with identifier ${identifier} not found`, recordType, identifier);
     this.statusCode = 404;
     this.code = 'RECORD_NOT_FOUND';
+    this.name = 'RecordNotFoundError';
   }
 }
 
@@ -37,5 +39,6 @@ export class DatabaseQueryError extends LocalizedError {
     super(message);
     this.statusCode = 500;
     this.code = 'DATABASE_QUERY_ERROR';
+    this.name = 'DatabaseQueryError';
   }
 }
