@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { AppDataSource } from '../src/data-source';
 import dotenv from 'dotenv';
+import path from 'path';
 import { DataSource } from 'typeorm';
 
-dotenv.config();
+// Load .env from the project root (works for both src/ and build/ directories)
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 async function createDatabase() {
   const { host, port, username, password } = AppDataSource.options as any;

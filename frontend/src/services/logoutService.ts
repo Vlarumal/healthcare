@@ -1,4 +1,4 @@
-import { apiRequest } from './apiRequest';
+import { apiRequest, resetCsrfToken } from './apiRequest';
 import { ERROR_CODES } from '../constants/errors';
 import { hasIsTimeout, isAxiosErrorWithCode } from '../utils/errorUtils';
 
@@ -11,7 +11,6 @@ export const logout = async () => {
     }
     
     await apiRequest('POST', '/api/auth/logout');
-    // resetCsrfToken();
   } catch (error: unknown) {
     if (isAxiosErrorWithCode(error, 'ECONNABORTED') || hasIsTimeout(error)) {
       throw Object.assign(new Error(ERROR_CODES.CSRF_TIMEOUT_ERROR), {
@@ -25,6 +24,8 @@ export const logout = async () => {
     }
     throw error;
   } finally {
+    // CRITICAL: Clear CSRF token state to prevent stale token reuse
+    resetCsrfToken();
     window.dispatchEvent(
       new CustomEvent('authChange', {
         detail: { isAuthenticated: false },

@@ -1,12 +1,14 @@
 import express, { Application, Response } from 'express';
+import https from 'https';
+import http from 'http';
+import fs from 'fs';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import path from 'path';
-// import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
+import { createCsrfMiddleware } from './middlewares/csrfMiddleware';
 
-// const { doubleCsrfProtection, generateCsrfToken } =
-//   createCsrfMiddleware();
+const { doubleCsrfProtection } = createCsrfMiddleware();
 
 import patientRoutes from './routes/patientRoutes';
 import medicalHistoryRoutes from './routes/medicalHistoryRoutes';
@@ -25,6 +27,15 @@ import { getJWKS } from './services/keysService';
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app: Application = express();
+
+const DIST_PATH = path.resolve(__dirname, '../../frontend/dist');
+// const ASSETS_PATH = path.join(DIST_PATH, 'assets');
+
+if (!fs.existsSync(DIST_PATH)) {
+  console.error('Frontend dist not found:', DIST_PATH);
+  process.exit(1);
+}
+
 // app.set('trust proxy', process.env.TRUST_PROXY_COUNT);
 // app.set('trust proxy', [
 //   '100.20.92.101',
@@ -38,11 +49,11 @@ app.use(express.json());
 if (process.env.NODE_ENV === 'production') {
   if (!process.env.FRONTEND_URL) {
     logger.error(
-      'FRONTEND_URL environment variable is not set in production'
+      'FRONTEND_URL environment variable is not set in production',
     );
     throw new InternalServerError(
       'Internal server error',
-      'SERVER_ERROR'
+      'SERVER_ERROR',
     );
   }
 
@@ -57,7 +68,7 @@ if (process.env.NODE_ENV === 'production') {
         'x-csrf-token',
       ],
       exposedHeaders: ['Set-Cookie'],
-    })
+    }),
   );
 } else {
   const allowedOrigins = [
@@ -84,7 +95,7 @@ if (process.env.NODE_ENV === 'production') {
         'X-CSRF-Token',
       ],
       exposedHeaders: ['Set-Cookie'],
-    })
+    }),
   );
 }
 
@@ -135,14 +146,14 @@ if (
       permittedCrossDomainPolicies: {
         permittedPolicies: 'none',
       },
-    })
+    }),
   );
 }
 
 app.use((_req, res, next) => {
   res.setHeader(
     'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=()'
+    'camera=(), microphone=(), geolocation=()',
   );
   next();
 });
@@ -150,7 +161,39 @@ app.use((_req, res, next) => {
 // const buildPath = path.join(__dirname, 'dist');
 // app.use(express.static(buildPath));
 
-app.use(express.static('../frontend/dist'));
+// app.use(
+//   '/assets',
+//   express.static(ASSETS_PATH, {
+//     fallthrough: true,
+//     setHeaders: (res, filePath) => {
+//       if (filePath.endsWith('.js')) {
+//         res.setHeader(
+//           'Content-Type',
+//           'application/javascript; charset=utf-8',
+//         );
+//       } else if (filePath.endsWith('.css')) {
+//         res.setHeader('Content-Type', 'text/css; charset=utf-8');
+//       } else if (filePath.endsWith('.json')) {
+//         res.setHeader(
+//           'Content-Type',
+//           'application/json; charset=utf-8',
+//         );
+//       } else if (filePath.endsWith('.map')) {
+//         res.setHeader(
+//           'Content-Type',
+//           'application/json; charset=utf-8',
+//         );
+//       }
+//     },
+//   }),
+// );
+
+app.use(
+  express.static(DIST_PATH, {
+    index: false,
+  }),
+);
+
 // // Serve static files with CORS headers
 // app.use(express.static('dist', {
 //   setHeaders: (res, path) => {
@@ -230,61 +273,108 @@ app.use(cookieParser());
 
 // app.use(globalLimiter);
 
-// app.use((req, res, next) => {
-//   if (
-//     ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ||
-//     req.path === '/api/csrf-token' ||
-//     req.path === '/api/auth/csrf-refresh'
-//   ) {
-//     next();
-//   } else {
-//     if (process.env.CSRF_PROTECTION) {
-//       doubleCsrfProtection(req, res, next);
-//     }
-//   }
-// });
+app.use((req, res, next) => {
+  if (
+    ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ||
+    req.path === '/api/csrf-token' ||
+    req.path === '/api/auth/csrf-refresh'
+  ) {
+    next();
+  } else {
+    if (process.env.CSRF_PROTECTION) {
+      doubleCsrfProtection(req, res, next);
+    }
+  }
+});
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3001;
+
+// HTTP server (for health checks, redirect)
+const httpServer = http.createServer(app);
+
+// HTTPS server options
+let httpsServer: https.Server | null = null;
+
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.USE_LOCAL_HTTPS === 'true'
+) {
+  const httpsOptions = {
+    key: fs.readFileSync(path.resolve(__dirname, '../../key.pem')),
+    cert: fs.readFileSync(path.resolve(__dirname, '../../cert.pem')),
+  };
+
+  httpsServer = https.createServer(httpsOptions, app);
+}
+
+let serverInitialized = false;
 
 async function initializeServer() {
+  // Prevent double initialization
+  if (serverInitialized) {
+    console.warn('Server already initialized, skipping...');
+    return;
+  }
+  serverInitialized = true;
+
   try {
     await AppDataSource.initialize();
 
     app.use(
       '/api/auth',
       // apiLimiter,
-      authRoutes
+      authRoutes,
     );
     app.use(
       '/api/patients',
       //  apiLimiter,
-      patientRoutes
+      patientRoutes,
     );
     app.use(
       '/api/medical-history',
       // apiLimiter,
-      medicalHistoryRoutes
+      medicalHistoryRoutes,
     );
     app.use(
       '/api/dashboard',
       // apiLimiter,
-      dashboardRoutes
+      dashboardRoutes,
     );
 
     app.get(/^(?!\/api).*/, (_req, res) => {
       res.sendFile(
-        path.resolve(__dirname, '../../frontend/dist', 'index.html')
+        path.resolve(__dirname, '../../frontend/dist', 'index.html'),
       );
     });
+
+    // SPA fallback (MUST be last)
+    // app.get('*', (_req: Request, res: Response) => {
+    //   res.sendFile(path.join(DIST_PATH, 'index.html'));
+    // });
 
     app.use(errorHandler);
 
     if (process.env.NODE_ENV !== 'test') {
-      app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-      });
+      // httpServer.listen(PORT, () => {
+      //   console.log(`HTTP Server running on port ${PORT}`);
+      // });
+
+      if (httpsServer) {
+        httpsServer.listen(3443, () => {
+          console.log(`HTTPS Server running on port 3443`);
+        });
+      } else if (process.env.NODE_ENV === 'production') {
+        httpServer.listen(PORT, () => {
+          console.log(`Server running on port ${PORT}`);
+        });
+      } else {
+        httpServer.listen(PORT, () => {
+          console.log(`HTTP Server running on port ${PORT}`);
+        });
+      }
     }
   } catch (error) {
+    serverInitialized = false; // Reset on error
     console.error('Database connection error:', error);
     process.exit(1);
   }

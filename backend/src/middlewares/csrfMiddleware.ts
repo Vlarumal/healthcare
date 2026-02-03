@@ -1,32 +1,43 @@
 import dotenv from 'dotenv';
-dotenv.config();
 
-import { Request } from 'express';
+import {
+  Request,
+} from 'express';
 import { doubleCsrf } from 'csrf-csrf';
 import logger from '../utils/logger';
-import { cookieDomain, CSRF_SECRET } from '../config';
+import {
+  CSRF_SECRET,
+  getCookieDomain,
+} from '../config';
 import { InternalServerError } from '../errors/httpErrors';
+import path from 'path';
+
+// Load .env from the project root (works for both src/ and build/ directories)
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 export const getSessionIdentifier = (req: Request): string => {
   // Check for session cookie first
   if (req.cookies?.session) {
     return req.cookies.session;
   }
-  
+
   if (req.session && req.session.id) {
     return req.session.id;
   }
-  
+
   if (req.user && (req.user as any).id) {
     return (req.user as any).id;
   }
-  
+
   // Use optional chaining to handle cases where socket or headers might be undefined (e.g., in tests)
   const ip = req.ip || req.socket?.remoteAddress || 'unknown';
   const userAgent = req.headers?.['user-agent'] || '';
-  
+
   // Generate a UUID-based identifier from IP and user agent for uniqueness
-  const hash = require('crypto').createHash('sha256').update(`${ip}-${userAgent}`).digest('hex');
+  const hash = require('crypto')
+    .createHash('sha256')
+    .update(`${ip}-${userAgent}`)
+    .digest('hex');
   // Convert to UUID-like format (8-4-4-4-12)
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
 };
@@ -38,22 +49,11 @@ export const createCsrfMiddleware = () => {
 
   if (!process.env.CSRF_SECRET || process.env.CSRF_SECRET === '') {
     logger.error(
-      'CSRF_SECRET environment variable is not set or is empty'
+      'CSRF_SECRET environment variable is not set or is empty',
     );
     throw new InternalServerError(
       'Internal server error',
-      'SERVER_ERROR'
-    );
-  }
-
-  if (
-    process.env.NODE_ENV === 'production' &&
-    !process.env.COOKIE_DOMAIN
-  ) {
-    logger.error('COOKIE_DOMAIN environment variable is not set');
-    throw new InternalServerError(
-      'Internal server error',
-      'SERVER_ERROR'
+      'SERVER_ERROR',
     );
   }
 
@@ -73,7 +73,7 @@ export const createCsrfMiddleware = () => {
       }
     } else {
       logger.warn(
-        `COOKIE_SAMESITE value: ${process.env.COOKIE_SAMESITE}. Using 'none' in production for render.com, 'strict' in development.`
+        `COOKIE_SAMESITE value: ${process.env.COOKIE_SAMESITE}. Using 'none' in production for render.com, 'strict' in development.`,
       );
     }
   }
@@ -86,33 +86,32 @@ export const createCsrfMiddleware = () => {
   let httpOnly = true;
   if (process.env.COOKIE_HTTPONLY !== undefined) {
     httpOnly = process.env.COOKIE_HTTPONLY.toLowerCase() === 'true';
-    logger.info(`COOKIE_HTTPONLY=${process.env.COOKIE_HTTPONLY} -> httpOnly=${httpOnly}`);
+    logger.info(
+      `COOKIE_HTTPONLY=${process.env.COOKIE_HTTPONLY} -> httpOnly=${httpOnly}`,
+    );
   } else {
     logger.warn(
-      'COOKIE_HTTPONLY not set, using default httpOnly=true'
+      'COOKIE_HTTPONLY not set, using default httpOnly=true',
     );
   }
-
   const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
     getSecret: () => CSRF_SECRET,
     getSessionIdentifier,
     cookieName: 'csrfToken',
-    cookieOptions: {
+    cookieOptions: ((req: Request) => ({
       secure: process.env.NODE_ENV === 'production',
       sameSite,
       httpOnly,
-      ...(process.env.NODE_ENV === 'production' && cookieDomain && {
-        domain: cookieDomain
+      maxAge: 3600000,
+      ...(getCookieDomain(req.hostname) && {
+        domain: getCookieDomain(req.hostname),
       }),
-      maxAge: 3600000, // 1 hour expiration
-    },
+    })) as any,
     size: 64,
     ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
-    errorConfig: {
-      code: 'CSRF_TOKEN_MISSING_OR_INVALID',
-      message: 'CSRF token missing or invalid',
-    },
   });
-
-  return { doubleCsrfProtection, generateCsrfToken };
+  return {
+    doubleCsrfProtection,
+    generateCsrfToken,
+  };
 };

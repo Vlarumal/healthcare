@@ -2,7 +2,7 @@ import axios, { type AxiosRequestConfig } from 'axios';
 
 /**
  * Secure API request service with:
- * - CSRF protection (cookie-based only)
+ * - CSRF protection (cookie-based with header validation)
  * - Token refresh with backoff limiting
  * - Standardized error handling
  *
@@ -12,13 +12,82 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
-// let csrfToken: string | null = null;
-// let csrfTokenPromise: Promise<string> | null = null;
+let csrfToken: string | null = null;
+let csrfTokenPromise: Promise<string> | null = null;
 
-// export const resetCsrfToken = () => {
-//   csrfToken = null;
-//   csrfTokenPromise = null;
-// };
+const fetchCsrfToken = async (): Promise<string> => {
+  try {
+    const response = await apiClient.get('/api/auth/csrf-refresh', {
+      timeout: 5000,
+    });
+    const token = response.data.csrfToken;
+    if (typeof token !== 'string') {
+      throw new Error('Invalid CSRF token format');
+    }
+    return token;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.code === 'ECONNABORTED') {
+      throw Object.assign(new Error(`CSRF token request timed out`), {
+        code: 'ECONNABORTED',
+        isTimeout: true,
+      });
+    }
+    throw err;
+  }
+};
+
+export const getCsrfToken = async (): Promise<string> => {
+  if (csrfToken) {
+    return csrfToken;
+  }
+
+  if (csrfTokenPromise) {
+    return csrfTokenPromise;
+  }
+
+  csrfTokenPromise = fetchCsrfToken()
+    .then((token) => {
+      csrfToken = token;
+      return token;
+    })
+    .catch((err) => {
+      csrfTokenPromise = null;
+      if (err.code === 'ECONNABORTED' && err.isTimeout) {
+        throw Object.assign(
+          new Error(`Failed to retrieve CSRF token: ${err.message}`),
+          {
+            code: err.code,
+            isTimeout: true,
+          }
+        );
+      }
+
+      const enhancedError = new Error(
+        `Failed to retrieve CSRF token: ${err.message}`,
+        { cause: err }
+      );
+      enhancedError.name = err.name || 'CSRF_ERROR';
+
+      const rest = Object.fromEntries(
+        Object.entries(err).filter(
+          ([key]) => key !== 'message' && key !== 'name'
+        )
+      );
+      Object.assign(enhancedError, rest);
+      throw enhancedError;
+    });
+
+  return csrfTokenPromise;
+};
+
+/**
+ * Reset CSRF token state - MUST be called on logout
+ * This ensures no stale tokens are reused after session invalidation
+ */
+export const resetCsrfToken = () => {
+  csrfToken = null;
+  csrfTokenPromise = null;
+};
 
 // Centralized error handler
 function handleApiError(
@@ -87,74 +156,6 @@ interface ExtendedAxiosRequestConfig extends AxiosRequestConfig {
   _retry?: boolean;
 }
 
-// const fetchCsrfToken = async (): Promise<string> => {
-//   try {
-//     const response = await apiClient.get('/api/csrf-token', {
-//       timeout: 5000,
-//     });
-//     const token = response.data.csrfToken;
-//     if (typeof token !== 'string') {
-//       throw new Error('Invalid CSRF token format');
-//     }
-//     return token;
-//   } catch (err) {
-//     if (axios.isAxiosError(err) && err.code === 'ECONNABORTED') {
-//       throw Object.assign(new Error(`CSRF token request timed out`), {
-//         code: 'ECONNABORTED',
-//         isTimeout: true,
-//       });
-//     }
-
-//     throw err;
-//   }
-// };
-
-// export const getCsrfToken = async (): Promise<string> => {
-//   if (csrfToken) {
-//     return csrfToken;
-//   }
-
-//   if (csrfTokenPromise) {
-//     return csrfTokenPromise;
-//   }
-
-//   csrfTokenPromise = fetchCsrfToken()
-//     .then((token) => {
-//       csrfToken = token;
-//       return token;
-//     })
-//     .catch((err) => {
-//       if (err.code === 'ECONNABORTED' && err.isTimeout) {
-//         throw Object.assign(
-//           new Error(`Failed to retrieve CSRF token: ${err.message}`),
-//           {
-//             code: err.code,
-//             isTimeout: true,
-//           }
-//         );
-//       }
-
-//       const enhancedError = new Error(
-//         `Failed to retrieve CSRF token: ${err.message}`,
-//         { cause: err }
-//       );
-//       enhancedError.name = err.name || 'CSRF_ERROR';
-
-//       const rest = Object.fromEntries(
-//         Object.entries(err).filter(
-//           ([key]) => key !== 'message' && key !== 'name'
-//         )
-//       );
-//       Object.assign(enhancedError, rest);
-//       throw enhancedError;
-//     })
-//     .finally(() => {
-//       csrfTokenPromise = null;
-//     });
-
-//   return csrfTokenPromise;
-// };
-
 let globalLogoutHandler: (() => Promise<void>) | null = null;
 
 export const setGlobalLogoutHandler = (
@@ -173,8 +174,10 @@ export const setupApiInterceptors = (
         config.method?.toLowerCase() || ''
       )
     ) {
-      // const token = await getCsrfToken();
-      // config.headers['x-csrf-token'] = token;
+      const token = await getCsrfToken();
+      if (token) {
+        config.headers['x-csrf-token'] = token;
+      }
     }
     return config;
   });
@@ -204,20 +207,17 @@ export const setupApiInterceptors = (
           error.response.data?.code ===
             'CSRF_TOKEN_MISSING_OR_INVALID')
       ) {
-        // try {
-        //   const { csrfToken } = await apiRequest<{
-        //     csrfToken: string;
-        //   }>('GET', '/api/csrf-token');
-
-        //   if (csrfToken) {
-        //     originalRequest.headers['x-csrf-token'] = csrfToken;
-        //     return apiClient(originalRequest);
-        //   }
-        // } catch (refreshError) {
-        //   if (import.meta.env.DEV) {
-        //     console.error('CSRF refresh failed:', refreshError);
-        //   }
-        // }
+        csrfToken = null;
+        try {
+          const newToken = await getCsrfToken();
+          originalRequest.headers['x-csrf-token'] = newToken;
+          return apiClient(originalRequest);
+        } catch (refreshError) {
+          if (import.meta.env.DEV) {
+            console.error('CSRF refresh failed:', refreshError);
+          }
+          return Promise.reject(refreshError);
+        }
       }
 
       if (

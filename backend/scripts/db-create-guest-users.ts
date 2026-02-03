@@ -3,8 +3,10 @@ import { AppDataSource } from '../src/data-source';
 import { Patient, Role, Gender } from '../src/entities/Patient';
 import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
+import path from 'path';
 
-dotenv.config();
+// Load .env from the project root (works for both src/ and build/ directories)
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // TEMPORARY DEMO PASSWORD - CHANGE BEFORE PRODUCTION!
 const GUEST_PASSWORD = process.env.GUEST_PASSWORD!;

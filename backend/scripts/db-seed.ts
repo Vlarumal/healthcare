@@ -7,8 +7,10 @@ import { Token } from '../src/entities/Token';
 import { faker } from '@faker-js/faker/locale/en_US';
 import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
+import path from 'path';
 
-dotenv.config();
+// Load .env from the project root (works for both src/ and build/ directories)
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const MEDICAL_CONDITIONS = [
   'Hypertension', 'Type 2 Diabetes', 'Asthma', 'Osteoarthritis', 
