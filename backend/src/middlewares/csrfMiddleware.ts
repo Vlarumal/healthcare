@@ -95,12 +95,22 @@ export const createCsrfMiddleware = () => {
       'COOKIE_HTTPONLY not set, using default httpOnly=true',
     );
   }
+  
+  // Determine cookie security based on SameSite setting
+  // SameSite=None REQUIRES Secure flag for browsers to accept it
+  let secureCookie = process.env.NODE_ENV === 'production';
+  if (sameSite === 'none') {
+    // For cross-site cookies, Secure is required regardless of NODE_ENV
+    secureCookie = true;
+    logger.info('SameSite=None detected, enabling Secure flag for cross-site cookies');
+  }
+
   const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
     getSecret: () => CSRF_SECRET,
     getSessionIdentifier,
     cookieName: 'csrfToken',
     cookieOptions: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: secureCookie,
       sameSite,
       httpOnly,
       maxAge: 3600000,
