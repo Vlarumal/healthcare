@@ -5,10 +5,7 @@ import {
 } from 'express';
 import { doubleCsrf } from 'csrf-csrf';
 import logger from '../utils/logger';
-import {
-  CSRF_SECRET,
-  getCookieDomain,
-} from '../config';
+import { CSRF_SECRET } from '../config';
 import { InternalServerError } from '../errors/httpErrors';
 import path from 'path';
 
@@ -102,16 +99,13 @@ export const createCsrfMiddleware = () => {
     getSecret: () => CSRF_SECRET,
     getSessionIdentifier,
     cookieName: 'csrfToken',
-    cookieOptions: ((req: Request) => ({
+    cookieOptions: {
       secure: process.env.NODE_ENV === 'production',
       sameSite,
       httpOnly,
       maxAge: 3600000,
       path: '/',
-      ...(getCookieDomain(req.hostname) && {
-        domain: getCookieDomain(req.hostname),
-      }),
-    })) as any,
+    },
     size: 64,
     ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
   });
