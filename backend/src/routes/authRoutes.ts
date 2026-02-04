@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import {
   ACCESS_TOKEN_EXPIRES_IN_MS,
   httpOnly,
@@ -44,6 +44,18 @@ import { UserNotFoundError } from '../errors/authErrors';
 import ErrorLogger from '../utils/errorLogger';
 
 const router = Router();
+
+// Helper to determine cookie options for cross-site cookies
+// SameSite=None requires Partitioned attribute for Chrome's CHIPS
+// Uses explicit typing for TypeScript safety
+const getProductionCookieOptions = (req: Request) => ({
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
+  partitioned: process.env.NODE_ENV === 'production', // Chrome CHIPS requirement
+  domain: process.env.NODE_ENV === 'production'
+    ? req.hostname
+    : undefined,
+});
 
 const getPatientRepository = () =>
   AppDataSource.getRepository(Patient);
@@ -152,25 +164,19 @@ router.post(
       decodedRefresh.exp! * 1000
     );
 
+    const prodOptions = getProductionCookieOptions(req);
+
     res
       .cookie('accessToken', accessToken, {
         httpOnly,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
-        domain: process.env.NODE_ENV === 'production'
-          ? req.hostname
-          : undefined,
+        ...prodOptions,
         path: '/',
         maxAge: ACCESS_TOKEN_EXPIRES_IN_MS,
       })
       .cookie('refreshToken', refreshToken, {
         httpOnly,
+        ...prodOptions,
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
-        domain: process.env.NODE_ENV === 'production'
-          ? req.hostname
-          : undefined,
         maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
       });
 
@@ -232,12 +238,10 @@ router.post(
         clientIp
       );
 
+      const tempOptions = getProductionCookieOptions(req);
       res.cookie('accessToken', accessToken, {
         httpOnly,
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
+        ...tempOptions,
         maxAge: 5 * 60 * 1000, // 5 minutes
       });
 
@@ -291,25 +295,19 @@ router.post(
       decodedRefresh.exp! * 1000
     );
 
+    const prodOptions = getProductionCookieOptions(req);
+
     res
       .cookie('accessToken', accessToken, {
         httpOnly,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
-        domain: process.env.NODE_ENV === 'production'
-          ? req.hostname
-          : undefined,
+        ...prodOptions,
         path: '/',
         maxAge: ACCESS_TOKEN_EXPIRES_IN_MS,
       })
       .cookie('refreshToken', refreshToken, {
         httpOnly,
+        ...prodOptions,
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
-        domain: process.env.NODE_ENV === 'production'
-          ? req.hostname
-          : undefined,
         maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
       });
 
@@ -457,25 +455,19 @@ router.post(
       jwtOptions
     );
 
+    const prodOptions = getProductionCookieOptions(req);
+
     res
       .cookie('accessToken', accessToken, {
         httpOnly,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
-        domain: process.env.NODE_ENV === 'production'
-          ? req.hostname
-          : undefined,
+        ...prodOptions,
         path: '/',
         maxAge: ACCESS_TOKEN_EXPIRES_IN_MS,
       })
       .cookie('refreshToken', newRefreshToken, {
         httpOnly,
+        ...prodOptions,
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
-        domain: process.env.NODE_ENV === 'production'
-          ? req.hostname
-          : undefined,
         maxAge: REFRESH_TOKEN_EXPIRES_IN_MS,
       })
       .status(200)
@@ -555,23 +547,18 @@ router.post(
       decodedRefresh.exp! * 1000
     );
 
+    const prodOptions = getProductionCookieOptions(req);
     res
       .cookie('accessToken', accessToken, {
         httpOnly,
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
+        ...prodOptions,
         path: '/',
         maxAge: ACCESS_TOKEN_EXPIRES_IN_MS,
       })
       .cookie('refreshToken', refreshToken, {
         httpOnly,
+        ...prodOptions,
         path: '/',
-        secure:
-          process.env.NODE_ENV === 'production' &&
-          process.env.PROXY_SECURE === 'true',
-        sameSite,
         maxAge: REFRESH_TOKEN_EXPIRES_IN_MS, // 7 days
       });
 
@@ -680,24 +667,18 @@ router.post(
 
     generateCsrfToken(req, res, { overwrite: true });
 
+    const prodOptions = getProductionCookieOptions(req);
+
     res
       .clearCookie('accessToken', {
         httpOnly,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
-        domain: process.env.NODE_ENV === 'production'
-          ? req.hostname
-          : undefined,
+        ...prodOptions,
         path: '/',
       })
       .clearCookie('refreshToken', {
         httpOnly,
+        ...prodOptions,
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : sameSite,
-        domain: process.env.NODE_ENV === 'production'
-          ? req.hostname
-          : undefined,
       });
 
     res.status(204).send();

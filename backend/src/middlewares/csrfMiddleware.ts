@@ -99,10 +99,12 @@ export const createCsrfMiddleware = () => {
   // Determine cookie security based on SameSite setting
   // SameSite=None REQUIRES Secure flag for browsers to accept it
   let secureCookie = process.env.NODE_ENV === 'production';
+  let partitionedCookie = false;
   if (sameSite === 'none') {
     // For cross-site cookies, Secure is required regardless of NODE_ENV
     secureCookie = true;
-    logger.info('SameSite=None detected, enabling Secure flag for cross-site cookies');
+    partitionedCookie = true; // Chrome's CHIPS requirement for third-party cookies
+    logger.info('SameSite=None detected, enabling Secure and Partitioned flags for cross-site cookies');
   }
 
   const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
@@ -113,6 +115,7 @@ export const createCsrfMiddleware = () => {
       secure: secureCookie,
       sameSite,
       httpOnly,
+      partitioned: partitionedCookie,
       maxAge: 3600000,
       path: '/',
     },
