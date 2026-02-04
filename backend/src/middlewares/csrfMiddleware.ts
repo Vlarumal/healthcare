@@ -15,6 +15,10 @@ import path from 'path';
 // Load .env from the project root (works for both src/ and build/ directories)
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
+// Does it require a session cookie like express-session?
+// No. The library is designed to work without sessions. The fallback mechanism is intentional.
+// What happens when no session cookie exists?
+// Uses IP+User-Agent hash fallback. This is the expected behavior for stateless CSRF protection.
 export const getSessionIdentifier = (req: Request): string => {
   // Check for session cookie first
   if (req.cookies?.session) {
@@ -103,6 +107,7 @@ export const createCsrfMiddleware = () => {
       sameSite,
       httpOnly,
       maxAge: 3600000,
+      path: '/',
       ...(getCookieDomain(req.hostname) && {
         domain: getCookieDomain(req.hostname),
       }),

@@ -6,7 +6,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import path from 'path';
-import { doubleCsrfProtection } from './middlewares/csrfInstance';
+import { doubleCsrfProtection, generateCsrfToken } from './middlewares/csrfInstance';
 
 import patientRoutes from './routes/patientRoutes';
 import medicalHistoryRoutes from './routes/medicalHistoryRoutes';
@@ -217,6 +217,8 @@ app.use(
 
 app.use(cookieParser());
 
+// Does it require a session cookie like express-session?
+// No. The library is designed to work without sessions. The fallback mechanism is intentional.
 // // Create session ID first so CSRF middleware can access it
 // app.use((req, res, next) => {
 //   if (!req.cookies.sessionId) {
@@ -390,20 +392,20 @@ app.get('/health', (_req, res: Response) => {
   });
 });
 
-// app.get('/api/csrf-token', (req, res) => {
-//   try {
-//     if (!req.session?.id) {
-//       res.status(400).json({ error: 'Session not initialized' });
-//       return;
-//     }
+app.get('/api/csrf-token', (req, res) => {
+  try {
+    // if (!req.session?.id) {
+    //   res.status(400).json({ error: 'Session not initialized' });
+    //   return;
+    // }
 
-//     const token = generateCsrfToken(req, res);
-//     res.json({ csrfToken: token });
-//   } catch (error) {
-//     logger.error('Error generating CSRF token:', error);
-//     res.status(500).json({ error: 'CSRF token not available' });
-//   }
-// });
+    const token = generateCsrfToken(req, res);
+    res.json({ csrfToken: token });
+  } catch (error) {
+    logger.error('Error generating CSRF token:', error);
+    res.status(500).json({ error: 'CSRF token not available' });
+  }
+});
 
 app.get('/.well-known/jwks.json', (_req, res) => {
   res.json(getJWKS());

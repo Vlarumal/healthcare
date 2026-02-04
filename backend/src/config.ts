@@ -68,7 +68,7 @@ export const getCookieDomain = (host: string): string | undefined => {
   // Render.com auto-generated subdomains - use host-only cookie (omit Domain)
   // This is more secure and avoids RFC 6265 public suffix issues
   if (hostname.endsWith('.onrender.com')) {
-    return hostname;  
+    return '.onrender.com';  
   }
 
   // Custom domains - use exact hostname without leading dot
